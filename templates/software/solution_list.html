@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+
+{% block title %}Tech Solutions - Tech Rescue Zone{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Tech Solutions</h1>
+<p class="text-muted mb-4">Browse step-by-step guides and solutions from our community</p>
+
+<div class="row">
+    <!-- Filters Sidebar -->
+    <div class="col-md-3">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Filters</h5>
+            </div>
+            <div class="card-body">
+                <form method="get" action="{% url 'TechRescueZoneApp:solution_list' %}">
+                    <!-- Category Filter -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Category</label>
+                        <div class="overflow-auto" style="max-height: 200px;">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="category" id="category-all" value="" {% if not selected_category %}checked{% endif %}>
+                                <label class="form-check-label" for="category-all">
+                                    All Categories
+                                </label>
+                            </div>
+                            {% for category in categories %}
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="category" id="category-{{ category.id }}" value="{{ category.id }}" {% if selected_category == category.id|stringformat:"i" %}checked{% endif %}>
+                                <label class="form-check-label" for="category-{{ category.id }}">
+                                    {{ category.name }}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <!-- Sort By -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Sort By</label>
+                        <select class="form-select" name="sort_by">
+                            <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Newest</option>
+                            <option value="popular" {% if sort_by == 'popular' %}selected{% endif %}>Most Popular</option>
+                            <option value="top_rated" {% if sort_by == 'top_rated' %}selected{% endif %}>Top Rated</option>
+                            <option value="most_viewed" {% if sort_by == 'most_viewed' %}selected{% endif %}>Most Viewed</option>
+                        </select>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">Apply Filters</button>
+                        <a href="{% url 'TechRescueZoneApp:solution_list' %}" class="btn btn-outline-secondary mt-2">Clear Filters</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        {% if user.is_authenticated %}
+        <div class="d-grid mb-4">
+            <a href="{% url 'TechRescueZoneApp:create_solution' %}" class="btn btn-success">
+                <i class="fas fa-plus me-2"></i>Post New Solution
+            </a>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Solutions -->
+    <div class="col-md-9">
+        <!-- Search Bar -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <form method="get" action="{% url 'TechRescueZoneApp:solution_list' %}" class="d-flex">
+                    <input type="text" name="search" class="form-control me-2" placeholder="Search solutions..." value="{{ search_query }}">
+                    <button type="submit" class="btn btn-primary">Search</button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Solutions List -->
+        {% if solutions %}
+            {% for solution in solutions %}
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">{{ solution.title }}</h5>
+                    <span class="badge bg-primary">{{ solution.category.name }}</span>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="d-flex align-items-center">
+                            <img src="{% if solution.author.profile.profile_picture %}{{ solution.author.profile.profile_picture.url }}{% else %}https://via.placeholder.com/40{% endif %}" class="rounded-circle me-2" width="40" height="40" alt="{{ solution.author.username }}">
+                            <div>
+                                <p class="mb-0 fw-bold">{{ solution.author.username }}</p>
+                                <p class="text-muted mb-0 small">Posted on {{ solution.created_at|date:"F j, Y" }}</p>
+                            </div>
+                        </div>
+                        <div class="rating">
+                            {% with avg_rating=solution.get_average_rating %}
+                            {% for i in "12345" %}
+                                {% if forloop.counter <= avg_rating|floatformat:"0" %}
+                                <i class="fas fa-star"></i>
+                                {% else %}
+                                <i class="far fa-star"></i>
+                                {% endif %}
+                            {% endfor %}
+                            <span class="ms-1">({{ avg_rating|floatformat:1 }})</span>
+                            {% endwith %}
+                        </div>
+                    </div>
+                    
+                    <p>{{ solution.summary }}</p>
+                    
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="me-3"><i class="fas fa-eye me-1"></i> {{ solution.views }}</span>
+                            <span class="me-3"><i class="fas fa-thumbs-up me-1"></i> {{ solution.get_like_count }}</span>
+                            <span><i class="fas fa-comment me-1"></i> {{ solution.get_comment_count }}</span>
+                        </div>
+                        <a href="{% url 'TechRescueZoneApp:solution_detail' solution.id %}" class="btn btn-primary">Read More</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="alert alert-info">
+                No solutions found matching your criteria.
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

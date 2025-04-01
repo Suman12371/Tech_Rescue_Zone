@@ -75,25 +75,40 @@
             background-repeat: no-repeat;
             background-position: 12px 11px;  
           }
+
+          .errorlist{
+            color:red;
+        }
     </style>
 </head>
 <body>
     <div class="login-container">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert {% if message.tags %}alert-{{ message.tags }}{% else %}alert-info{% endif %}" role="alert">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
         <h1 class="login-title">Login</h1>
         <form method="post" action="{% url 'TechRescueZoneApp:login' %}">
             {% csrf_token %}
             <div class="mb-3">
-                <label for="id_username" class="form-label">{{ form.username.label }}</label>
+                <label for="id_username" class="form-label">Username</label>
                 <input type="text" name="username" class="form-control" id="id_username">
             </div>
             <div class="mb-3">
-                <label for="id_password" class="form-label">{{ form.password.label }}</label>
+                <label for="id_password" class="form-label">Password</label>
                 <input type="password" name="password" class="form-control" id="id_password">
+                <a href="/password_reset/" style="color: rgb(207, 85, 85);"> Forgot your Password?</a>
             </div>
+            
             <button type="submit" class="btn btn-danger w-100">Login</button>
         </form>
         <div class="text-center mt-3">
-            <p>Don’t have an account? <a href="/register/" class="text-danger">Register</a></p>
+            <p>Don't have an account? <a href="/register/" class="text-danger">Register</a></p>
+            
         </div>
         <button class="btn google-btn w-100 mt-2">Sign in with Google</button>
     </div>

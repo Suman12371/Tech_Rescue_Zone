@@ -1,0 +1,267 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ solution.title }} - Tech Rescue Zone{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-lg-8">
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'TechRescueZoneApp:home' %}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'TechRescueZoneApp:solution_list' %}">Solutions</a></li>
+                    <li class="breadcrumb-item active">{{ solution.title }}</li>
+                </ol>
+            </nav>
+            
+            <div class="card shadow-sm mb-4 border-0">
+                <div class="card-header bg-primary text-white py-3 d-flex justify-content-between align-items-center">
+                    <h2 class="mb-0 fs-4">{{ solution.title }}</h2>
+                    <span class="badge bg-light text-primary">{{ solution.category.name }}</span>
+                </div>
+                <div class="card-body p-4">
+                    <!-- Author Info -->
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div class="d-flex align-items-center">
+                            <img src="{% if solution.author.profile.profile_picture %}{{ solution.author.profile.profile_picture.url }}{% else %}/placeholder.svg?height=50&width=50{% endif %}" class="rounded-circle me-3" width="50" height="50" alt="{{ solution.author.username }}">
+                            <div>
+                                <h5 class="mb-0">{{ solution.author.username }}</h5>
+                                <p class="text-muted mb-0">Posted on {{ solution.created_at|date:"F j, Y" }}</p>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <div class="rating me-3">
+                                {% with avg_rating=solution.get_average_rating %}
+                                {% for i in "12345" %}
+                                    {% if forloop.counter <= avg_rating|floatformat:"0" %}
+                                    <i class="fas fa-star text-warning"></i>
+                                    {% else %}
+                                    <i class="far fa-star text-muted"></i>
+                                    {% endif %}
+                                {% endfor %}
+                                <span class="ms-1">({{ avg_rating|floatformat:1 }})</span>
+                                {% endwith %}
+                            </div>
+                            <div>
+                                <span class="me-2"><i class="fas fa-eye me-1"></i> {{ solution.views }}</span>
+                                <span><i class="fas fa-thumbs-up me-1"></i> {{ solution.get_like_count }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Summary -->
+                    <div class="mb-4">
+                        <h5 class="border-bottom pb-2">Summary</h5>
+                        <p>{{ solution.summary }}</p>
+                    </div>
+                    
+                    <!-- Content -->
+                    <div class="mb-4">
+                        <h5 class="border-bottom pb-2">Description</h5>
+                        <p>{{ solution.content|linebreaks }}</p>
+                    </div>
+                    
+                    <!-- Steps -->
+                    <div class="mb-4">
+                        <h5 class="border-bottom pb-2">Step-by-Step Solution</h5>
+                        {% if steps %}
+                            <div class="solution-steps">
+                                {% for step in steps %}
+                                <div class="solution-step mb-4">
+                                    <div class="step-card border-start border-primary border-3 rounded shadow-sm p-3">
+                                        <div class="d-flex align-items-center mb-3">
+                                            <div class="step-badge bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 36px; height: 36px;">
+                                                {{ step.order }}
+                                            </div>
+                                            <h5 class="mb-0">{{ step.title }}</h5>
+                                        </div>
+                                        <p>{{ step.content|linebreaks }}</p>
+                                        {% if step.images.all %}
+                                        <div class="row mt-3">
+                                            {% for image in step.images.all %}
+                                            <div class="col-md-6 mb-3">
+                                                <div class="card">
+                                                    <img src="{{ image.image.url }}" class="img-fluid rounded" alt="{{ image.caption|default:step.title }}">
+                                                    {% if image.caption %}
+                                                    <div class="card-footer bg-light py-2">
+                                                        <p class="text-center text-muted small mb-0">{{ image.caption }}</p>
+                                                    </div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i> No steps provided for this solution.
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Actions -->
+                    <div class="d-flex justify-content-between align-items-center mt-4">
+                        <div>
+                            {% if user.is_authenticated %}
+                            <form method="post" action="{% url 'TechRescueZoneApp:like_solution' solution.id %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-{% if user_liked %}primary{% else %}outline-primary{% endif %}">
+                                    <i class="fas fa-thumbs-up me-1"></i> {% if user_liked %}Liked{% else %}Like{% endif %}
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                        <div>
+                            {% if user.is_authenticated and user == solution.author or user.is_staff %}
+                            <a href="{% url 'TechRescueZoneApp:edit_solution_steps' solution.id %}" class="btn btn-outline-secondary me-2">
+                                <i class="fas fa-list-ol me-1"></i> Edit Steps
+                            </a>
+                            <a href="{% url 'TechRescueZoneApp:edit_solution' solution.id %}" class="btn btn-outline-secondary me-2">
+                                <i class="fas fa-edit me-1"></i> Edit Solution
+                            </a>
+                            <a href="{% url 'TechRescueZoneApp:delete_solution' solution.id %}" class="btn btn-outline-danger">
+                                <i class="fas fa-trash me-1"></i> Delete
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Rating Section -->
+            {% if user.is_authenticated %}
+            <div class="card shadow-sm mb-4 border-0">
+                <div class="card-header bg-light py-3">
+                    <h5 class="mb-0">Rate this Solution</h5>
+                </div>
+                <div class="card-body p-4">
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="rating_submit" value="1">
+                        <div class="mb-3">
+                            <label class="form-label">Your Rating</label>
+                            <div class="d-flex">
+                                {% for i in "12345" %}
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="rating" id="rating-{{ i }}" value="{{ forloop.counter }}" {% if rating_form.rating.value == forloop.counter %}checked{% endif %} required>
+                                    <label class="form-check-label" for="rating-{{ i }}">{{ forloop.counter }}</label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Submit Rating</button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Comments Section -->
+            <div class="card shadow-sm mb-4 border-0">
+                <div class="card-header bg-light py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Comments</h5>
+                    <span class="badge bg-primary">{{ comments.count }}</span>
+                </div>
+                <div class="card-body p-4">
+                    {% if user.is_authenticated %}
+                    <div class="mb-4">
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="comment_submit" value="1">
+                            <div class="mb-3">
+                                <label for="content" class="form-label">Add a Comment</label>
+                                <textarea class="form-control" id="content" name="content" rows="3" required></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Post Comment</button>
+                        </form>
+                    </div>
+                    <hr>
+                    {% endif %}
+                    
+                    {% if comments %}
+                    <div class="comments">
+                        {% for comment in comments %}
+                        <div class="comment mb-3">
+                            <div class="d-flex">
+                                <img src="{% if comment.user.profile.profile_picture %}{{ comment.user.profile.profile_picture.url }}{% else %}/placeholder.svg?height=40&width=40{% endif %}" class="rounded-circle me-2" width="40" height="40" alt="{{ comment.user.username }}">
+                                <div>
+                                    <div class="d-flex align-items-center">
+                                        <h6 class="mb-0 me-2">{{ comment.user.username }}</h6>
+                                        <small class="text-muted">{{ comment.created_at|date:"F j, Y, g:i a" }}</small>
+                                    </div>
+                                    <p class="mt-1 mb-0">{{ comment.content }}</p>
+                                </div>
+                            </div>
+                            {% if not forloop.last %}<hr>{% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-center">No comments yet. Be the first to comment!</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Related Solutions -->
+            <div class="card shadow-sm mb-4 border-0">
+                <div class="card-header bg-light py-3">
+                    <h5 class="mb-0">Related Solutions</h5>
+                </div>
+                <div class="card-body p-4">
+                    {% if related_solutions %}
+                    <div class="related-solutions">
+                        {% for related in related_solutions %}
+                        <div class="card mb-3 border-0 shadow-sm">
+                            <div class="card-body py-3">
+                                <h6 class="card-title">{{ related.title }}</h6>
+                                <p class="card-text small text-muted">{{ related.summary|truncatechars:60 }}</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="rating small">
+                                        {% with avg_rating=related.get_average_rating %}
+                                        {% for i in "12345" %}
+                                            {% if forloop.counter <= avg_rating|floatformat:"0" %}
+                                            <i class="fas fa-star text-warning"></i>
+                                            {% else %}
+                                            <i class="far fa-star text-muted"></i>
+                                            {% endif %}
+                                        {% endfor %}
+                                        {% endwith %}
+                                    </div>
+                                    <a href="{% url 'TechRescueZoneApp:solution_detail' related.id %}" class="btn btn-sm btn-outline-primary">View</a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-center">No related solutions found.</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Author Info -->
+            <div class="card shadow-sm mb-4 border-0">
+                <div class="card-header bg-light py-3">
+                    <h5 class="mb-0">About the Author</h5>
+                </div>
+                <div class="card-body p-4 text-center">
+                    <img src="{% if solution.author.profile.profile_picture %}{{ solution.author.profile.profile_picture.url }}{% else %}/placeholder.svg?height=100&width=100{% endif %}" class="rounded-circle mb-3" width="100" height="100" alt="{{ solution.author.username }}">
+                    <h5>{{ solution.author.username }}</h5>
+                    <p class="text-muted">Member since {{ solution.author.date_joined|date:"F Y" }}</p>
+                    <div class="d-grid">
+                        <a href="#" class="btn btn-outline-primary">View Profile</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

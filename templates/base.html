@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Tech Rescue Zone{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <style>
+        :root {
+            --primary-color: #ff3333;
+            --secondary-color: #ff6666;
+            --dark-color: #000000;
+            --light-color: #ffffff;
+            --danger-color: #ff0000;
+            --warning-color: #ff9900;
+            --accent-color: #cc0000;
+            --text-color: #333333;
+            --text-muted: #6c757d;
+            --border-color: #dee2e6;
+            --card-bg: #f8f8f8;
+        }
+        
+        body {
+            padding-top: 56px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-color: #f0f0f0;
+            color: var(--text-color);
+            font-family: 'Roboto', sans-serif;
+        }
+        
+        .navbar-brand {
+            font-weight: bold;
+            color: var(--primary-color) !important;
+            font-family: 'Orbitron', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .navbar {
+            background-color: #000000 !important;
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        .nav-link {
+            color: var(--primary-color) !important;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-link:hover {
+            color: var(--secondary-color) !important;
+            transform: translateY(-2px);
+        }
+        
+        .dropdown-menu {
+            background-color: #ffffff;
+            border: 1px solid var(--border-color);
+        }
+        
+        .dropdown-item {
+            color: var(--text-color);
+        }
+        
+        .dropdown-item:hover {
+            background-color: #f0f0f0;
+            color: var(--primary-color);
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--accent-color);
+            color: #ffffff;
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--accent-color);
+            border-color: var(--accent-color);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-success {
+            background-color: #28a745;
+            border-color: #28a745;
+        }
+        
+        .btn-success:hover {
+            background-color: #218838;
+            border-color: #1e7e34;
+        }
+        
+        .btn-outline-secondary {
+            color: #6c757d;
+            border-color: #6c757d;
+        }
+        
+        .btn-outline-secondary:hover {
+            background-color: #6c757d;
+            color: #ffffff;
+        }
+        
+        .card {
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+        }
+        
+        .card-header {
+            background-color: #f0f0f0;
+            font-weight: bold;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-color);
+        }
+        
+        .notification-badge {
+            position: absolute;
+            top: 0;
+            right: 0;
+            padding: 0.25rem 0.5rem;
+            border-radius: 50%;
+            background-color: var(--danger-color);
+            color: white;
+            font-size: 0.75rem;
+        }
+        
+        .footer {
+            margin-top: auto;
+            padding: 20px 0;
+            background-color: #000000;
+            color: var(--primary-color);
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .rating {
+            color: var(--warning-color);
+        }
+        
+        .solution-step {
+            border-left: 3px solid var(--primary-color);
+            padding-left: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .chat-container {
+            height: 400px;
+            overflow-y: auto;
+            background-color: #ffffff;
+            border: 1px solid var(--border-color);
+        }
+        
+        .message-bubble {
+            border-radius: 20px;
+            padding: 10px 15px;
+            margin-bottom: 10px;
+            max-width: 70%;
+        }
+        
+        .message-sent {
+            background-color: var(--primary-color);
+            color: white;
+            margin-left: auto;
+        }
+        
+        .message-received {
+            background-color: #f0f0f0;
+            color: var(--text-color);
+        }
+        
+        /* Form styling */
+        .form-control, .form-select {
+            background-color: #ffffff;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+        }
+        
+        .form-control:focus, .form-select:focus {
+            background-color: #ffffff;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.25rem rgba(255, 0, 0, 0.25);
+            color: var(--text-color);
+        }
+        
+        /* Table styling */
+        .table {
+            color: var(--text-color);
+        }
+        
+        .table-striped > tbody > tr:nth-of-type(odd) {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+        
+        /* Alert styling */
+        .alert {
+            border: 1px solid var(--border-color);
+        }
+        
+        .alert-success {
+            background-color: rgba(46, 204, 113, 0.1);
+            color: #2ecc71;
+        }
+        
+        .alert-danger {
+            background-color: rgba(231, 76, 60, 0.1);
+            color: #e74c3c;
+        }
+        
+        .alert-warning {
+            background-color: rgba(243, 156, 18, 0.1);
+            color: #f39c12;
+        }
+        
+        .alert-info {
+            background-color: rgba(52, 152, 219, 0.1);
+            color: #3498db;
+        }
+        
+        /* Navbar brand effect */
+        .navbar-brand {
+            text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+        }
+        
+        /* Links */
+        a {
+            color: #0d6efd;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        
+        a:hover {
+            color: #0a58ca;
+            text-decoration: underline;
+        }
+        
+        /* Footer links */
+        .footer a {
+            color: var(--primary-color);
+            transition: all 0.3s ease;
+        }
+        
+        .footer a:hover {
+            color: var(--secondary-color);
+            text-decoration: none;
+        }
+        
+        /* Main content area */
+        main.container {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        
+        /* Headings */
+        h1, h2, h3, h4, h5, h6 {
+            color: #333333;
+            font-weight: 700;
+        }
+        
+        /* Footer headings */
+        .footer h5 {
+            color: var(--primary-color);
+            font-weight: 700;
+        }
+        
+        /* Animations */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .navbar-brand:hover {
+            animation: pulse 1.5s infinite;
+        }
+        
+        /* Custom styles for specific pages */
+        {% block extra_css %}
+        {% endblock %}
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top bg-dark">
+        <a class="navbar-brand d-flex align-items-center px-3 py-2" href="{% url 'TechRescueZoneApp:home' %}" style="height: 60px; width:60px; ">
+            <img src="/static/TechRescueZone1.jpeg" alt="Tech Rescue Zone Logo" 
+                 class="rounded-circle " 
+                 width="60" height="60" 
+                 style="object-fit: cover; background-color: white;">
+        </a>
+        <div class="container">
+            
+            <!-- Navbar Toggler -->
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'TechRescueZoneApp:home' %}"><i class="fas fa-home me-1"></i> Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'TechRescueZoneApp:solution_list' %}"><i class="fas fa-lightbulb me-1"></i> Solutions</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'TechRescueZoneApp:hardware_list' %}"><i class="fas fa-microchip me-1"></i> Hardware</a>
+                    </li>
+                    {% if user.is_authenticated and user.is_admin_user %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'dashboard' %}"><i class="fas fa-tachometer-alt me-1"></i> Admin Dashboard</a>
+                    </li>
+                    {% endif %}
+                </ul>
+    
+                <ul class="navbar-nav">
+                    {% if user.is_authenticated %}
+                    <li class="nav-item">
+                        <a class="nav-link position-relative" href="{% url 'TechRescueZoneApp:cart' %}">
+                            <i class="fas fa-shopping-cart"></i>
+                            {% if request.session.cart %}
+                            <span class="notification-badge">{{ request.session.cart|length }}</span>
+                            {% endif %}
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link position-relative" href="{% url 'TechRescueZoneApp:notification_list' %}">
+                            <i class="fas fa-bell"></i>
+                            {% if notification_count > 0 %}
+                            <span class="notification-badge">{{ notification_count }}</span>
+                            {% endif %}
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'TechRescueZoneApp:chat_list' %}">
+                            <i class="fas fa-comments"></i>
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user"></i> {{ user.username }}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            
+                            {% if user.profile.status == "export" %}
+                                <li><a class="dropdown-item" href="{% url 'TechRescueZoneApp:export_profile' %}"><i class="fas fa-id-card me-2"></i>Export Profile</a></li>
+                                <li><a class="dropdown-item" href="{% url 'TechRescueZoneApp:add_hardware' %}"><i class="fas fa-plus-circle me-2"></i>Add Hardware</a></li>
+                            {% elif user.profile.status == "user" %}
+                                <li><a class="dropdown-item" href="{% url 'TechRescueZoneApp:user_profile' %}"><i class="fas fa-id-card me-2"></i>User Profile</a></li>
+                            {% elif user.is_staff or user.is_superuser %}
+                                <li><a class="dropdown-item" href="{% url 'TechRescueZoneApp:user_profile' %}"><i class="fas fa-id-card me-2"></i>Admin Profile</a></li>
+                                <li><a class="dropdown-item" href="{% url 'TechRescueZoneApp:add_hardware' %}"><i class="fas fa-plus-circle me-2"></i>Add Hardware</a></li>
+
+                            {% endif %}
+                            <li><a class="dropdown-item" href="{% url 'TechRescueZoneApp:create_solution' %}"><i class="fas fa-edit me-2"></i>Post Solution</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'TechRescueZoneApp:logout' %}"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
+                        </ul>
+                    </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'TechRescueZoneApp:login' %}"><i class="fas fa-sign-in-alt me-1"></i> Login</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'TechRescueZoneApp:register' %}"><i class="fas fa-user-plus me-1"></i> Register</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+    
+
+    <!-- Messages -->
+    {% if messages %}
+    <div class="container mt-3">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Main Content -->
+    <main class="container py-4">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer bg-dark text-light py-5">
+        <div class="container">
+            <div class="row">
+                <!-- Branding & Social Media -->
+                <div class="col-md-4">
+                    <h5 class="mb-3"> Tech Rescue Zone</h5>
+                    <p>Your one-stop platform for hardware solutions and tech support.</p>
+                    <div class="mt-3">
+                        <a href="#" class="text-light me-3"><i class="fab fa-facebook-f fa-lg"></i></a>
+                        <a href="#" class="text-light me-3"><i class="fab fa-twitter fa-lg"></i></a>
+                        <a href="#" class="text-light me-3"><i class="fab fa-instagram fa-lg"></i></a>
+                        <a href="#" class="text-light me-3"><i class="fab fa-linkedin-in fa-lg"></i></a>
+                    </div>
+                </div>
+    
+                <!-- Quick Links -->
+                <div class="col-md-4">
+                    <h5 class="mb-3"> Quick Links</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="{% url 'TechRescueZoneApp:home' %}" class="text-light"><i class="fas fa-angle-right me-2"></i>Home</a></li>
+                        <li><a href="{% url 'TechRescueZoneApp:solution_list' %}" class="text-light"><i class="fas fa-angle-right me-2"></i>Solutions</a></li>
+                        <li><a href="{% url 'TechRescueZoneApp:hardware_list' %}" class="text-light"><i class="fas fa-angle-right me-2"></i>Hardware</a></li>
+                        <li><a href="#" class="text-light"><i class="fas fa-angle-right me-2"></i>About Us</a></li>
+                        <li><a href="#" class="text-light"><i class="fas fa-angle-right me-2"></i>Privacy Policy</a></li>
+                    </ul>
+                </div>
+    
+                <!-- Contact Info -->
+                <div class="col-md-4">
+                    <h5 class="mb-3"> Contact Us</h5>
+                    <p><i class="fas fa-envelope me-2"></i> support@techrescuezone.com</p>
+                    <p><i class="fas fa-phone me-2"></i> (+977) 123-7890-123</p>
+                    <p><i class="fas fa-map-marker-alt me-2"></i> Itahari Sunsari, BhetGhatChowk, NP</p>
+                </div>
+            </div>
+    
+            <!-- Divider -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <hr class="border-secondary">
+                </div>
+            </div>
+    
+            <!-- Copyright -->
+            <div class="row">
+                <div class="col-12 text-center">
+                    <p class="mb-0">&copy; {% now "Y" %} Tech Rescue Zone. All rights reserved.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+    
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- jQuery (for AJAX) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script>
+        // Common JavaScript functions
+        $(document).ready(function() {
+            // Auto-dismiss alerts after 5 seconds
+            setTimeout(function() {
+                $('.alert').alert('close');
+            }, 5000);
+            
+            // Add hover effect to cards
+            $('.card').hover(
+                function() {
+                    $(this).css('transform', 'translateY(-5px)');
+                    $(this).css('box-shadow', '0 8px 20px rgba(0, 0, 0, 0.15)');
+                    $(this).css('transition', 'all 0.3s ease');
+                },
+                function() {
+                    $(this).css('transform', 'translateY(0)');
+                    $(this).css('box-shadow', '0 4px 15px rgba(0, 0, 0, 0.1)');
+                    $(this).css('transition', 'all 0.3s ease');
+                }
+            );
+        });
+        
+        // Additional JavaScript
+        {% block extra_js %}
+        
+        {% endblock %}
+    </script>
+    
+
+</body>
+</html>

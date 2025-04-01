@@ -1,0 +1,669 @@
+{% extends 'base.html' %}
+{% load widget_tweaks %}
+
+{% block title %}Add Solution Steps - Tech Rescue Zone{% endblock %}
+
+{% block extra_css %}
+<style>
+    .step-card {
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+        border-left: 5px solid #0d6efd;
+    }
+    
+    .step-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    }
+    
+    .step-header {
+        background-color: rgba(13, 110, 253, 0.05);
+        border-radius: 10px 10px 0 0;
+    }
+    
+    .step-badge {
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background-color: #0d6efd;
+        color: white;
+        font-weight: bold;
+    }
+    
+    .image-upload-area {
+        border: 2px dashed #dee2e6;
+        border-radius: 8px;
+        padding: 20px;
+        text-align: center;
+        transition: all 0.3s ease;
+        background-color: #f8f9fa;
+    }
+    
+    .image-upload-area:hover {
+        border-color: #0d6efd;
+        background-color: rgba(13, 110, 253, 0.05);
+    }
+    
+    .image-preview {
+        position: relative;
+        margin-top: 15px;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .image-preview img {
+        width: 100%;
+        height: auto;
+        object-fit: cover;
+    }
+    
+    .image-caption-input {
+        margin-top: 10px;
+        border-radius: 0 0 8px 8px;
+    }
+    
+    .remove-image-btn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background-color: rgba(255, 255, 255, 0.9);
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .remove-image-btn:hover {
+        background-color: #dc3545;
+        color: white;
+    }
+    
+    .tips-icon {
+        width: 50px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background-color: rgba(13, 110, 253, 0.1);
+        color: #0d6efd;
+    }
+    
+    .add-step-btn {
+        transition: all 0.3s ease;
+    }
+    
+    .add-step-btn:hover {
+        transform: scale(1.05);
+    }
+    
+    .form-floating label {
+        color: #6c757d;
+    }
+    
+    .progress-indicator {
+        height: 4px;
+        background-color: #e9ecef;
+        border-radius: 2px;
+        margin-bottom: 30px;
+    }
+    
+    .progress-bar {
+        height: 100%;
+        background-color: #0d6efd;
+        border-radius: 2px;
+        transition: width 0.3s ease;
+    }
+    
+    /* Debug panel styles */
+    .debug-panel {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+        font-family: monospace;
+        font-size: 12px;
+    }
+    
+    .debug-panel h6 {
+        margin-bottom: 10px;
+        color: #dc3545;
+    }
+    
+    .debug-panel pre {
+        margin-bottom: 0;
+        white-space: pre-wrap;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'TechRescueZoneApp:home' %}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'TechRescueZoneApp:solution_list' %}">Solutions</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'TechRescueZoneApp:solution_detail' solution_id=solution.id %}">{{ solution.title }}</a></li>
+                    <li class="breadcrumb-item active">Add Steps</li>
+                </ol>
+            </nav>
+
+            <div class="card shadow-sm mb-4 border-0">
+                <div class="card-header bg-primary text-white py-3 d-flex align-items-center">
+                    <i class="fas fa-list-ol me-2"></i>
+                    <h3 class="mb-0">Add Steps for "{{ solution.title }}"</h3>
+                </div>
+                <div class="card-body p-4">
+                    <div class="progress-indicator mb-4">
+                        <div class="progress-bar" id="progress-bar" style="width: 0%;"></div>
+                    </div>
+                    
+                    <!-- Debug Panel (hidden by default) -->
+                    <div id="debug-panel" class="debug-panel d-none">
+                        <h6><i class="fas fa-bug me-2"></i>Debug Information</h6>
+                        <div>
+                            <p>Management Form Data:</p>
+                            <pre id="management-form-data">
+TOTAL_FORMS: {{ formset.management_form.TOTAL_FORMS.value }}
+INITIAL_FORMS: {{ formset.management_form.INITIAL_FORMS.value }}
+MIN_NUM_FORMS: {{ formset.management_form.MIN_NUM_FORMS.value }}
+MAX_NUM_FORMS: {{ formset.management_form.MAX_NUM_FORMS.value }}
+                            </pre>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info mb-4 border-0 shadow-sm">
+                        <div class="d-flex">
+                            <div class="tips-icon me-3">
+                                <i class="fas fa-info-circle fa-lg"></i>
+                            </div>
+                            <div>
+                                <h5 class="alert-heading">Tips for Creating Steps</h5>
+                                <p class="mb-0">Break down your solution into clear, sequential steps. Add images to help users understand each step. Be specific and provide all necessary details.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <form method="post" enctype="multipart/form-data" id="solution-steps-form">
+                        {% csrf_token %}
+                        {{ formset.management_form }}
+                        
+                        <div id="steps-container">
+                            {% for form in formset %}
+                            <div class="step-form mb-4">
+                                <div class="step-card">
+                                    <div class="step-header d-flex justify-content-between align-items-center p-3">
+                                        <div class="d-flex align-items-center">
+                                            <div class="step-badge me-3">{{ forloop.counter }}</div>
+                                            <h4 class="mb-0">Step {{ forloop.counter }}</h4>
+                                        </div>
+                                        {% if forloop.counter > 1 %}
+                                        <div class="form-check form-switch mb-0">
+                                            {{ form.DELETE|add_class:"form-check-input" }}
+                                            <label class="form-check-label" for="{{ form.DELETE.id_for_label }}">
+                                                Delete
+                                            </label>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="card-body p-4">
+                                        {% if form.non_field_errors %}
+                                        <div class="alert alert-danger">
+                                            {% for error in form.non_field_errors %}
+                                            {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+                                        
+                                        {% for hidden in form.hidden_fields %}
+                                        {{ hidden }}
+                                        {% endfor %}
+                                        
+                                        <div class="mb-4">
+                                            <div class="form-floating">
+                                                {{ form.title|add_class:"form-control"|attr:"placeholder:Step Title" }}
+                                                <label for="{{ form.title.id_for_label }}">Step Title</label>
+                                            </div>
+                                            {% if form.title.errors %}
+                                            <div class="text-danger mt-1">
+                                                {% for error in form.title.errors %}
+                                                {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                            {% endif %}
+                                            <small class="text-muted">A clear, concise title for this step</small>
+                                        </div>
+                                        
+                                        <div class="mb-4">
+                                            <div class="form-floating">
+                                                {{ form.content|add_class:"form-control"|attr:"rows:5"|attr:"placeholder:Step Instructions" }}
+                                                <label for="{{ form.content.id_for_label }}">Step Instructions</label>
+                                            </div>
+                                            {% if form.content.errors %}
+                                            <div class="text-danger mt-1">
+                                                {% for error in form.content.errors %}
+                                                {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                            {% endif %}
+                                            <small class="text-muted">Detailed instructions for completing this step</small>
+                                        </div>
+                                        
+                                        <div class="mb-4">
+                                            <div class="form-floating">
+                                                {{ form.order|add_class:"form-control"|attr:"placeholder:Step Order" }}
+                                                <label for="{{ form.order.id_for_label }}">Step Order</label>
+                                            </div>
+                                            {% if form.order.errors %}
+                                            <div class="text-danger mt-1">
+                                                {% for error in form.order.errors %}
+                                                {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                            {% endif %}
+                                            <small class="text-muted">The sequence number for this step (1, 2, 3, etc.)</small>
+                                        </div>
+                                        
+                                        <!-- Image Upload Section -->
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold">Step Images (Optional)</label>
+                                            <div class="image-upload-container">
+                                                <div class="image-upload-area">
+                                                    <i class="fas fa-cloud-upload-alt fa-3x text-primary mb-3"></i>
+                                                    <h5>Upload Images</h5>
+                                                    <p class="text-muted">Drag & drop images here or click to browse</p>
+                                                    <input type="file" name="step_image_{{ forloop.counter0 }}_1" class="form-control step-image-input d-none" accept="image/*">
+                                                    <button type="button" class="btn btn-outline-primary browse-btn">
+                                                        <i class="fas fa-images me-2"></i> Browse Images
+                                                    </button>
+                                                </div>
+                                                
+                                                <div class="image-previews mt-3 row g-3">
+                                                    <!-- Image previews will be added here dynamically -->
+                                                </div>
+                                                
+                                                <button type="button" class="btn btn-sm btn-outline-secondary add-more-images mt-3">
+                                                    <i class="fas fa-plus-circle me-1"></i> Add Another Image
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="mb-4 text-center">
+                            <button type="button" id="add-step" class="btn btn-outline-primary btn-lg add-step-btn">
+                                <i class="fas fa-plus-circle me-2"></i>Add Another Step
+                            </button>
+                            <button type="button" id="toggle-debug" class="btn btn-sm btn-outline-secondary ms-2">
+                                <i class="fas fa-bug me-1"></i> Debug Info
+                            </button>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'TechRescueZoneApp:solution_detail' solution_id=solution.id %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Back to Solution
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Save Steps
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-light py-3">
+                    <h4 class="mb-0"><i class="fas fa-lightbulb me-2 text-warning"></i>Tips for Creating Effective Steps</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="d-flex">
+                                <div class="tips-icon me-3">
+                                    <i class="fas fa-list-ol"></i>
+                                </div>
+                                <div>
+                                    <h5>Keep Steps Sequential</h5>
+                                    <p>Make sure each step follows logically from the previous one.</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="d-flex">
+                                <div class="tips-icon me-3">
+                                    <i class="fas fa-align-left"></i>
+                                </div>
+                                <div>
+                                    <h5>Be Specific</h5>
+                                    <p>Include all necessary details for each step.</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="d-flex">
+                                <div class="tips-icon me-3">
+                                    <i class="fas fa-images"></i>
+                                </div>
+                                <div>
+                                    <h5>Add Visual Aids</h5>
+                                    <p>Screenshots or images help users understand complex steps.</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="d-flex">
+                                <div class="tips-icon me-3">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                </div>
+                                <div>
+                                    <h5>Highlight Warnings</h5>
+                                    <p>Point out potential issues or things to watch out for.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+    $(document).ready(function() {
+        console.log("Document ready - initializing enhanced add steps functionality");
+        
+        // Set initial form count and update progress bar
+        var initialFormCount = $('#id_form-TOTAL_FORMS').val();
+        console.log("Initial form count:", initialFormCount);
+        updateProgressBar();
+        
+        // Function to update progress bar
+        function updateProgressBar() {
+            var filledSteps = 0;
+            var totalSteps = $('.step-form').length;
+            
+            $('.step-form').each(function() {
+                var title = $(this).find('input[name$="title"]').val();
+                var content = $(this).find('textarea[name$="content"]').val();
+                
+                if (title && content) {
+                    filledSteps++;
+                }
+            });
+            
+            var progress = totalSteps > 0 ? (filledSteps / totalSteps) * 100 : 0;
+            $('#progress-bar').css('width', progress + '%');
+        }
+        
+        // Toggle debug panel
+        $('#toggle-debug').on('click', function() {
+            $('#debug-panel').toggleClass('d-none');
+        });
+        
+        // Handle browse button click
+        $(document).on('click', '.browse-btn', function() {
+            $(this).closest('.image-upload-area').find('.step-image-input').click();
+        });
+        
+        // Handle drag and drop
+        $('.image-upload-area').each(function() {
+            var uploadArea = $(this);
+            var fileInput = uploadArea.find('.step-image-input');
+            
+            uploadArea.on('dragover', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                $(this).addClass('border-primary');
+            });
+            
+            uploadArea.on('dragleave', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                $(this).removeClass('border-primary');
+            });
+            
+            uploadArea.on('drop', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                $(this).removeClass('border-primary');
+                
+                if (e.originalEvent.dataTransfer && e.originalEvent.dataTransfer.files.length) {
+                    fileInput[0].files = e.originalEvent.dataTransfer.files;
+                    fileInput.trigger('change');
+                }
+            });
+        });
+        
+        // Image preview functionality
+        $(document).on('change', '.step-image-input', function() {
+            var file = this.files[0];
+            if (file) {
+                var reader = new FileReader();
+                var container = $(this).closest('.image-upload-container');
+                var previewsContainer = container.find('.image-previews');
+                var stepIndex = container.closest('.step-form').index();
+                var imageCount = previewsContainer.children().length + 1;
+                
+                reader.onload = function(e) {
+                    var previewHtml = `
+                        <div class="col-md-6 image-preview-container">
+                            <div class="image-preview">
+                                <img src="${e.target.result}" class="img-fluid" alt="Preview">
+                                <div class="remove-image-btn">
+                                    <i class="fas fa-times"></i>
+                                </div>
+                            </div>
+                            <div class="form-floating mt-2">
+                                <input type="text" name="step_image_caption_${stepIndex}_${imageCount}" class="form-control image-caption-input" placeholder="Image caption (optional)">
+                                <label>Image Caption (Optional)</label>
+                            </div>
+                        </div>
+                    `;
+                    
+                    previewsContainer.append(previewHtml);
+                    
+                    // Rename the file input and create a new one for the next upload
+                    $(this).attr('name', `step_image_${stepIndex}_${imageCount}`);
+                    $(this).removeClass('step-image-input').addClass('step-image-input-used');
+                    
+                    // Add a new file input for the next image
+                    var newInput = $(`<input type="file" name="step_image_${stepIndex}_${imageCount + 1}" class="form-control step-image-input d-none" accept="image/*">`);
+                    container.find('.image-upload-area').append(newInput);
+                }.bind(this);
+                
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        // Remove image functionality
+        $(document).on('click', '.remove-image-btn', function() {
+            $(this).closest('.image-preview-container').remove();
+        });
+        
+        // Add more images functionality
+        $(document).on('click', '.add-more-images', function(e) {
+            e.preventDefault();
+            $(this).closest('.image-upload-container').find('.browse-btn').click();
+        });
+        
+        // Add step button functionality
+        $('#add-step').on('click', function(e) {
+            e.preventDefault();
+            console.log("Add step button clicked");
+            
+            // Get the current form count
+            var formCount = parseInt($('#id_form-TOTAL_FORMS').val());
+            console.log("Current form count:", formCount);
+            
+            // Get the first form as a template
+            var formTemplate = $('.step-form:first');
+            console.log("Template form found:", formTemplate.length > 0);
+            
+            // Create a new form by cloning the template
+            var newFormHtml = formTemplate.prop('outerHTML');
+            console.log("Form HTML obtained");
+            
+            // Replace all occurrences of form-0 with the new index
+            newFormHtml = newFormHtml.replace(/form-0-/g, 'form-' + formCount + '-');
+            newFormHtml = newFormHtml.replace(/id_form-0-/g, 'id_form-' + formCount + '-');
+            
+            // Replace image input names
+            newFormHtml = newFormHtml.replace(/step_image_0_/g, 'step_image_' + formCount + '_');
+            newFormHtml = newFormHtml.replace(/step_image_caption_0_/g, 'step_image_caption_' + formCount + '_');
+            
+            // Create a new form element from the HTML
+            var newForm = $(newFormHtml);
+            
+            // Update the step number in the badge and title
+            newForm.find('.step-badge').text(formCount + 1);
+            newForm.find('.step-header h4').text('Step ' + (formCount + 1));
+            
+            // Clear all input values
+            newForm.find('input[type="text"], textarea').val('');
+            
+            // Clear image previews
+            newForm.find('.image-previews').empty();
+            
+            // Reset file inputs
+            newForm.find('input[type="file"]').not(':first').remove();
+            newForm.find('input[type="file"]:first').val('').removeClass('step-image-input-used').addClass('step-image-input');
+            
+            // Set the order field to the next number
+            newForm.find('input[name$="order"]').val(formCount + 1);
+            
+            // Make sure the delete checkbox is visible and unchecked
+            newForm.find('.form-check').show();
+            newForm.find('input[type="checkbox"]').prop('checked', false);
+            
+            // Append the new form to the container
+            $('#steps-container').append(newForm);
+            console.log("New form appended");
+            
+            // Update the total form count
+            $('#id_form-TOTAL_FORMS').val(formCount + 1);
+            console.log("Form count updated to:", formCount + 1);
+            
+            // Update management form data in debug panel
+            $('#management-form-data').html(`TOTAL_FORMS: ${formCount + 1}
+INITIAL_FORMS: ${$('#id_form-INITIAL_FORMS').val()}
+MIN_NUM_FORMS: ${$('#id_form-MIN_NUM_FORMS').val()}
+MAX_NUM_FORMS: ${$('#id_form-MAX_NUM_FORMS').val()}`);
+            
+            // Update progress bar
+            updateProgressBar();
+            
+            // Scroll to the new form with animation
+            $('html, body').animate({
+                scrollTop: newForm.offset().top - 100
+            }, 500);
+            
+            // Add a subtle highlight effect to the new form
+            newForm.find('.step-card').css('background-color', 'rgba(13, 110, 253, 0.05)');
+            setTimeout(function() {
+                newForm.find('.step-card').css('background-color', '');
+            }, 1000);
+        });
+        
+        // Handle delete checkbox changes
+        $(document).on('change', '.step-form input[type="checkbox"]', function() {
+            console.log("Delete checkbox changed");
+            var stepForm = $(this).closest('.step-form');
+            
+            if ($(this).is(':checked')) {
+                stepForm.find('.step-card').addClass('opacity-50');
+                stepForm.find('input, textarea').not('[type="checkbox"]').attr('disabled', 'disabled');
+            } else {
+                stepForm.find('.step-card').removeClass('opacity-50');
+                stepForm.find('input, textarea').not('[type="checkbox"]').removeAttr('disabled');
+            }
+            
+            updateProgressBar();
+        });
+        
+        // Update progress on input changes
+        $(document).on('input', 'input[name$="title"], textarea[name$="content"]', function() {
+            updateProgressBar();
+        });
+        
+        // Form validation before submit
+        $('#solution-steps-form').on('submit', function(e) {
+            var valid = true;
+            var firstInvalid = null;
+            
+            $('.step-form').each(function() {
+                var isDeleted = $(this).find('input[type="checkbox"]').is(':checked');
+                if (!isDeleted) {
+                    var title = $(this).find('input[name$="title"]').val();
+                    var content = $(this).find('textarea[name$="content"]').val();
+                    var order = $(this).find('input[name$="order"]').val();
+                    
+                    if (!title || !content || !order) {
+                        valid = false;
+                        if (!firstInvalid) {
+                            firstInvalid = $(this);
+                        }
+                        
+                        if (!title) {
+                            $(this).find('input[name$="title"]').addClass('is-invalid');
+                        }
+                        if (!content) {
+                            $(this).find('textarea[name$="content"]').addClass('is-invalid');
+                        }
+                        if (!order) {
+                            $(this).find('input[name$="order"]').addClass('is-invalid');
+                        }
+                    }
+                }
+            });
+            
+            if (!valid) {
+                e.preventDefault();
+                
+                // Show error message
+                if (!$('#form-error-alert').length) {
+                    $('#solution-steps-form').prepend(`
+                        <div id="form-error-alert" class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            Please fill in all required fields for each step.
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    `);
+                }
+                
+                // Scroll to first invalid input
+                if (firstInvalid) {
+                    $('html, body').animate({
+                        scrollTop: firstInvalid.offset().top - 100
+                    }, 500);
+                }
+            }
+        });
+        
+        // Remove invalid class on input
+        $(document).on('input', '.is-invalid', function() {
+            $(this).removeClass('is-invalid');
+        });
+    });
+
+{% endblock %}
+
