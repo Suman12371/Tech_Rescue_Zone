@@ -92,7 +92,42 @@ class HardwareReview(models.Model):
     class Meta:
         unique_together = ('hardware', 'user')
 
- 
+
+class Order(models.Model):
+    """Orders for hardware items"""
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('processing', 'Processing'),
+        ('shipped', 'Shipped'),
+        ('delivered', 'Delivered'),
+        ('cancelled', 'Cancelled'),
+    )
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    shipping_address = models.TextField()
+    total_price = models.DecimalField(max_digits=10, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"Order {self.id} by {self.user.username}"
+
+
+class OrderItem(models.Model):
+    """Individual items in an order"""
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
+    hardware = models.ForeignKey(Hardware, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(default=1)
+    price = models.DecimalField(max_digits=10, decimal_places=2)  # Price at time of purchase
+    
+    def __str__(self):
+        return f"{self.quantity} x {self.hardware.name} in Order {self.order.id}"
+    
+    def get_total_price(self):
+        return self.price * self.quantity
+    
+    
 class SolutionCategory(models.Model):
     """Categories for solutions"""
     name = models.CharField(max_length=100)
@@ -162,3 +197,135 @@ class SolutionImage(models.Model):
     def __str__(self):
         return f"Image for {self.step.solution.title} - Step {self.step.order}"
 
+
+class SolutionComment(models.Model):
+    """Comments on solutions"""
+    solution = models.ForeignKey(Solution, on_delete=models.CASCADE, related_name='comments')
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Comment by {self.user.username} on {self.solution.title}"
+
+
+class SolutionRating(models.Model):
+    """Ratings for solutions"""
+    solution = models.ForeignKey(Solution, on_delete=models.CASCADE, related_name='ratings')
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    rating = models.PositiveSmallIntegerField(choices=[(i, i) for i in range(1, 6)])
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Rating by {self.user.username} for {self.solution.title}"
+    
+    class Meta:
+        unique_together = ('solution', 'user')
+        
+
+class Conversation(models.Model):
+    """Conversation between users"""
+    participants = models.ManyToManyField(User, related_name='conversations')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"Conversation {self.id}"
+    
+    def get_other_participant(self, user):
+        """Get the other participant in a two-person conversation"""
+        return self.participants.exclude(id=user.id).first()
+
+
+class Message(models.Model):
+    """Message in a conversation"""
+    conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='messages')
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
+    content = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Message from {self.sender.username} in Conversation {self.conversation.id}"
+    
+    class Meta:
+        ordering = ['created_at']
+        
+
+class Notification(models.Model):
+    """Notification model for user notifications"""
+    NOTIFICATION_TYPES = (
+        ('message', 'New Message'),
+        ('solution_comment', 'Solution Comment'),
+        ('solution_like', 'Solution Like'),
+        ('solution_rating', 'Solution Rating'),
+        ('order_status', 'Order Status Update'),
+        ('system', 'System Notification'),
+    )
+    
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_notifications', null=True, blank=True)
+    notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES)
+    content = models.TextField()
+    link = models.CharField(max_length=255, blank=True, null=True)
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Notification for {self.recipient.username}: {self.get_notification_type_display()}"
+    
+    class Meta:
+        ordering = ['-created_at']
+        
+        
+class Payment(models.Model):
+    """Payment model for tracking payments"""
+    PAYMENT_STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('refunded', 'Refunded'),
+    )
+    
+    PAYMENT_METHOD_CHOICES = (
+        ('credit_card', 'Credit Card'),
+        ('paypal', 'PayPal'),
+        ('bank_transfer', 'Bank Transfer'),
+    )
+    
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='payments')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='payments')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES)
+    transaction_id = models.CharField(max_length=100, blank=True, null=True)
+    status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"Payment {self.id} for Order {self.order.id}"
+
+
+class PaymentMethod(models.Model):
+    """Saved payment methods for users"""
+    CARD_TYPE_CHOICES = (
+        ('visa', 'Visa'),
+        ('mastercard', 'Mastercard'),
+        ('amex', 'American Express'),
+        ('discover', 'Discover'),
+    )
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='payment_methods')
+    method_type = models.CharField(max_length=20, choices=Payment.PAYMENT_METHOD_CHOICES)
+    card_type = models.CharField(max_length=20, choices=CARD_TYPE_CHOICES, blank=True, null=True)
+    last_four = models.CharField(max_length=4, blank=True, null=True)  # Last 4 digits of card
+    expiry_date = models.CharField(max_length=7, blank=True, null=True)  # Format: MM/YYYY
+    is_default = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        if self.method_type == 'credit_card':
+            return f"{self.get_card_type_display()} ending in {self.last_four}"
+        return self.get_method_type_display()
+    
+    
