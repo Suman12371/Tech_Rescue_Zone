@@ -12,16 +12,8 @@ from django.db.models import Avg, Q, Count, Max
 from django.http import JsonResponse
 import random
 import uuid
-from .models import (
-    Profile, Category, Hardware, HardwareImage, HardwareReview, 
-    SolutionCategory, Solution, SolutionStep,
-     SolutionImage
-)
-from .forms import (
-    UserRegisterForm, EmailVerificationForm, ProfileForm, HardwareForm, HardwareImageFormSet,
-    HardwareReviewForm, SolutionForm, SolutionStepFormSet
-    
-)
+from .models import (Profile, Category, Hardware, HardwareImage, HardwareReview,Order, OrderItem, SolutionCategory, Solution, SolutionStep,SolutionImage)
+from .forms import (UserRegisterForm, EmailVerificationForm, ProfileForm, HardwareForm, HardwareImageFormSet,HardwareReviewForm,OrderForm, SolutionForm, SolutionStepFormSet)
 
 User = get_user_model()
 
@@ -265,6 +257,111 @@ def hardware_detail(request, hardware_id):
         'related_hardware': related_hardware,
     }
     return render(request, 'hardware/hardware_detail.html', context)
+
+@login_required
+def add_to_cart(request, hardware_id):
+    hardware = get_object_or_404(Hardware, id=hardware_id)
+    quantity = int(request.POST.get('quantity', 1))
+    
+    if hardware.stock < quantity:
+        messages.error(request, f'Sorry, only {hardware.stock} units available.')
+        return redirect('TechRescueZoneApp:hardware_detail', hardware_id=hardware.id)
+    
+    if 'cart' not in request.session:
+        request.session['cart'] = {}
+    
+    cart = request.session['cart']
+    hardware_id_str = str(hardware_id)
+    
+    if hardware_id_str in cart:
+        cart[hardware_id_str]['quantity'] += quantity
+    else:
+        cart[hardware_id_str] = {
+            'quantity': quantity,
+            'price': float(hardware.get_final_price()),
+            'name': hardware.name,
+        }
+    
+    request.session.modified = True
+    messages.success(request, f'{hardware.name} added to your cart.')
+    return redirect('TechRescueZoneApp:cart')
+
+@login_required
+def cart(request):
+    cart_items = []
+    total = 0
+    
+    if 'cart' in request.session:
+        for hardware_id, item_data in request.session['cart'].items():
+            hardware = get_object_or_404(Hardware, id=hardware_id)
+            quantity = item_data['quantity']
+            price = item_data['price']
+            item_total = quantity * price
+            
+            cart_items.append({
+                'hardware': hardware,
+                'quantity': quantity,
+                'price': price,
+                'total': item_total,
+            })
+            
+            total += item_total
+    
+    context = {
+        'cart_items': cart_items,
+        'total': total,
+    }
+    return render(request, 'hardware/cart.html', context)
+
+@login_required
+def order_confirmation(request, order_id):
+    order = get_object_or_404(Order, id=order_id, user=request.user)
+    
+    context = {
+        'order': order,
+    }
+    return render(request, 'hardware/order_confirmation.html', context)
+
+@login_required
+def update_cart_item(request, hardware_id):
+    if request.method == 'POST':
+        quantity = int(request.POST.get('quantity', 1))
+        
+        if 'cart' in request.session:
+            cart = request.session['cart']
+            hardware_id_str = str(hardware_id)
+            
+            if hardware_id_str in cart:
+                hardware = get_object_or_404(Hardware, id=hardware_id)
+                
+                if quantity > hardware.stock:
+                    messages.error(request, f'Sorry, only {hardware.stock} units available.')
+                    return redirect('TechRescueZoneApp:cart')
+                
+                if quantity <= 0:
+                    del cart[hardware_id_str]
+                else:
+                    cart[hardware_id_str]['quantity'] = quantity
+                
+                request.session.modified = True
+                messages.success(request, 'Cart updated successfully.')
+    
+    return redirect('TechRescueZoneApp:cart')
+
+@login_required
+def remove_from_cart(request, hardware_id):
+    if request.method == 'POST':
+        if 'cart' in request.session:
+            cart = request.session['cart']
+            hardware_id_str = str(hardware_id)
+            
+            if hardware_id_str in cart:
+                hardware = get_object_or_404(Hardware, id=hardware_id)
+                del cart[hardware_id_str]
+                request.session.modified = True
+                messages.success(request, f'{hardware.name} removed from your cart.')
+    
+    return redirect('TechRescueZoneApp:cart')
 
 
 
@@ -675,6 +772,7 @@ def like_solution(request, solution_id):
     return redirect('TechRescueZoneApp:solution_detail', solution_id=solution.id)
 
 
+
 @login_required
 def notification_list(request):
     notifications = request.user.notifications.all()
@@ -689,3 +787,26 @@ def notification_count(request):
         count = request.user.notifications.filter(is_read=False).count()
         return {'notification_count': count}
     return {'notification_count': 0}
+
+@login_required
+def mark_as_read(request, notification_id):
+    notification = get_object_or_404(Notification, id=notification_id, recipient=request.user)
+    notification.is_read = True
+    notification.save()
+    
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'status': 'success'})
+    
+    if notification.link:
+        return redirect(notification.link)
+    return redirect('TechRescueZoneApp:notification_list')
+
+
+@login_required
+def mark_all_as_read(request):
+    request.user.notifications.filter(is_read=False).update(is_read=True)
+    
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'status': 'success'})
+    
+    return redirect('TechRescueZoneApp:notification_list')

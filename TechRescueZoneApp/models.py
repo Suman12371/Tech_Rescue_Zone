@@ -318,8 +318,8 @@ class PaymentMethod(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='payment_methods')
     method_type = models.CharField(max_length=20, choices=Payment.PAYMENT_METHOD_CHOICES)
     card_type = models.CharField(max_length=20, choices=CARD_TYPE_CHOICES, blank=True, null=True)
-    last_four = models.CharField(max_length=4, blank=True, null=True)  # Last 4 digits of card
-    expiry_date = models.CharField(max_length=7, blank=True, null=True)  # Format: MM/YYYY
+    last_four = models.CharField(max_length=4, blank=True, null=True)  
+    expiry_date = models.CharField(max_length=7, blank=True, null=True) 
     is_default = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     

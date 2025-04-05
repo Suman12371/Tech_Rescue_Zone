@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+
+{% block title %}Shopping Cart - Tech Rescue Zone{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'TechRescueZoneApp:home' %}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'TechRescueZoneApp:hardware_list' %}">Hardware</a></li>
+                    <li class="breadcrumb-item active">Shopping Cart</li>
+                </ol>
+            </nav>
+
+            <div class="card shadow-sm mb-4 border-0">
+                <div class="card-header bg-primary text-white py-3 d-flex align-items-center">
+                    <i class="fas fa-shopping-cart me-2"></i>
+                    <h3 class="mb-0">Your Shopping Cart</h3>
+                </div>
+                <div class="card-body p-4">
+                    {% if cart_items %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Price</th>
+                                        <th>Quantity</th>
+                                        <th class="text-end">Total</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in cart_items %}
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                {% if item.hardware.images.all %}
+                                                    <img src="{{ item.hardware.images.first.image.url }}" alt="{{ item.hardware.name }}" class="img-thumbnail me-3" style="width: 60px; height: 60px; object-fit: cover;">
+                                                {% else %}
+                                                    <img src="/placeholder.svg?height=60&width=60" alt="{{ item.hardware.name }}" class="img-thumbnail me-3">
+                                                {% endif %}
+                                                <div>
+                                                    <h6 class="mb-0">{{ item.hardware.name }}</h6>
+                                                    <small class="text-muted">{{ item.hardware.category.name }}</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>${{ item.price|floatformat:2 }}</td>
+                                        <td>
+                                            <form method="post" action="{% url 'TechRescueZoneApp:update_cart_item' item.hardware.id %}" class="d-flex align-items-center">
+                                                {% csrf_token %}
+                                                <input type="number" name="quantity" value="{{ item.quantity }}" min="1" max="{{ item.hardware.stock }}" class="form-control form-control-sm" style="width: 70px;">
+                                                <button type="submit" class="btn btn-sm btn-outline-primary ms-2">Update</button>
+                                            </form>
+                                        </td>
+                                        <td class="text-end">${{ item.total|floatformat:2 }}</td>
+                                        <td class="text-end">
+                                            <form method="post" action="{% url 'TechRescueZoneApp:remove_from_cart' item.hardware.id %}">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="3" class="text-end fw-bold">Subtotal:</td>
+                                        <td class="text-end fw-bold">${{ total|floatformat:2 }}</td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'TechRescueZoneApp:hardware_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Continue Shopping
+                            </a>
+                            <a href="{% url 'TechRescueZoneApp:home' %}" class="btn btn-primary">
+                                <i class="fas fa-credit-card me-2"></i>Proceed to Checkout
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-shopping-cart fa-4x text-muted mb-3"></i>
+                            <h4>Your cart is empty</h4>
+                            <p class="text-muted">Looks like you haven't added any items to your cart yet.</p>
+                            <a href="{% url 'TechRescueZoneApp:hardware_list' %}" class="btn btn-primary mt-3">
+                                <i class="fas fa-shopping-bag me-2"></i>Browse Hardware
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            {% if cart_items %}
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-light py-3">
+                    <h4 class="mb-0"><i class="fas fa-info-circle me-2 text-primary"></i>Order Information</h4>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Shipping</h5>
+                            <p class="text-muted">Free shipping on all orders over $100. Standard shipping takes 3-5 business days.</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Returns</h5>
+                            <p class="text-muted">We accept returns within 30 days of delivery. Please see our return policy for more details.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+

@@ -2,11 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from django.forms import inlineformset_factory
-from .models import (
-    Profile, Hardware, HardwareImage, HardwareReview, 
-    Solution, SolutionStep, SolutionImage,
-    
-)
+from .models import (Profile, Hardware, HardwareImage, HardwareReview,Order,Solution, SolutionStep, SolutionImage,)
 
 class UserRegisterForm(UserCreationForm):
     email = forms.EmailField()
@@ -81,3 +77,12 @@ class SolutionImageForm(forms.ModelForm):
     class Meta:
         model = SolutionImage
         fields = ['image', 'caption']
+
+
+class OrderForm(forms.ModelForm):
+    class Meta:
+        model = Order
+        fields = ['shipping_address']
+        widgets = {
+            'shipping_address': forms.Textarea(attrs={'rows': 3}),
+        }

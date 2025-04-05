@@ -105,7 +105,14 @@ urlpatterns = [
     path('hardware/edit/<int:hardware_id>/', views.edit_hardware, name='edit_hardware'),
     path('hardware/delete/<int:hardware_id>/', views.delete_hardware, name='delete_hardware'),
     
-    # Solution URLs - with 'solutions/' prefix to avoid conflicts
+    path('hardware/add-to-cart/<int:hardware_id>/', views.add_to_cart, name='add_to_cart'),
+    path('cart/', views.cart, name='cart'),
+    path('cart/update/<int:hardware_id>/', views.update_cart_item, name='update_cart_item'),
+    path('cart/remove/<int:hardware_id>/', views.remove_from_cart, name='remove_from_cart'),
+    path('order-confirmation/<int:order_id>/', views.order_confirmation, name='order_confirmation'),
+    
+    
+    # Solution
     path('solutions/', views.solution_list, name='solution_list'),
     path('solutions/<int:solution_id>/', views.solution_detail, name='solution_detail'),
     path('solutions/create/', views.create_solution, name='create_solution'),
@@ -115,6 +122,11 @@ urlpatterns = [
     path('solutions/<int:solution_id>/delete/', views.delete_solution, name='delete_solution'),
     path('solutions/<int:solution_id>/like/', views.like_solution, name='like_solution'),
 
+    # Notification
+    path('notifications/', views.notification_list, name='notification_list'),
+    path('notifications/<int:notification_id>/mark-read/', views.mark_as_read, name='mark_notification_read'),
+    path('notifications/mark-all-read/', views.mark_all_as_read, name='mark_all_notifications_read'),
+    
     
    
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

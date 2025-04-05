@@ -32,3 +32,7 @@ def mul(value, arg):
         return value * arg
     except (TypeError, ValueError):
         return value
+    
+@register.filter
+def multiply(value, arg):
+    return value * arg
