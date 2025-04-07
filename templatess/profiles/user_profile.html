@@ -1,0 +1,517 @@
+{% extends 'base.html' %}
+{% load widget_tweaks %}
+
+{% block title %}{{ user.username }}'s Profile - Tech Rescue Zone{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row">
+        <!-- Profile Sidebar -->
+        <div class="col-lg-3 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    {% if user.profile.profile_picture %}
+                        <img src="{{ user.profile.profile_picture.url }}" alt="{{ user.username }}" class="rounded-circle img-thumbnail mb-3" style="width: 150px; height: 150px; object-fit: cover;">
+                    {% else %}
+                        <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 150px; height: 150px; font-size: 4rem;">
+                            {{ user.username|first|upper }}
+                        </div>
+                    {% endif %}
+                    
+                    <h4 class="mb-0">{{ user.get_full_name|default:user.username }}</h4>
+                    <p class="text-muted">@{{ user.username }}</p>
+                    
+                    {% if user.profile.is_verified %}
+                        <span class="badge bg-success mb-3"><i class="fas fa-check-circle me-1"></i> Verified</span>
+                    {% endif %}
+                    
+                    {% if user.profile.is_exporter %}
+                        <span class="badge bg-primary mb-3"><i class="fas fa-store me-1"></i> Seller</span>
+                    {% endif %}
+                    
+                    <div class="d-grid gap-2 mt-3">
+                        <a href="" class="btn btn-outline-primary">
+                            <i class="fas fa-edit me-2"></i>Edit Profile
+                        </a>
+                        {% if not user.profile.is_exporter %}
+                            <a href="" class="btn btn-outline-success">
+                                <i class="fas fa-store me-2"></i>Become a Seller
+                            </a>
+                        {% else %}
+                            <a href="{% url 'TechRescueZoneApp:exporter_profile' %}" class="btn btn-outline-primary">
+                                <i class="fas fa-store-alt me-2"></i>Seller Dashboard
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Profile Navigation -->
+            <div class="list-group mt-4 shadow-sm">
+                <a href="#overview" class="list-group-item list-group-item-action active" data-bs-toggle="list">
+                    <i class="fas fa-user me-2"></i>Overview
+                </a>
+                <a href="#orders" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                    <i class="fas fa-shopping-bag me-2"></i>Orders
+                </a>
+                <a href="#solutions" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                    <i class="fas fa-lightbulb me-2"></i>Solutions
+                </a>
+                <a href="#liked" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                    <i class="fas fa-heart me-2"></i>Liked Solutions
+                </a>
+                <a href="#settings" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                    <i class="fas fa-cog me-2"></i>Account Settings
+                </a>
+            </div>
+        </div>
+        
+        <!-- Profile Content -->
+        <div class="col-lg-9">
+            <div class="tab-content">
+                <!-- Overview Tab -->
+                <div class="tab-pane fade show active" id="overview">
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-white">
+                            <h4 class="mb-0"><i class="fas fa-user me-2"></i>Profile Overview</h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <h5>Account Information</h5>
+                                    <ul class="list-unstyled">
+                                        <li class="mb-2"><strong>Username:</strong> {{ user.username }}</li>
+                                        <li class="mb-2"><strong>Email:</strong> {{ user.email }}</li>
+                                        <li class="mb-2"><strong>Joined:</strong> {{ user.date_joined|date:"F j, Y" }}</li>
+                                        <li class="mb-2"><strong>Last Login:</strong> {{ user.last_login|date:"F j, Y" }}</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <h5>Activity Summary</h5>
+                                    <div class="row g-3">
+                                        <div class="col-6">
+                                            <div class="card bg-light">
+                                                <div class="card-body text-center">
+                                                    <h3 class="mb-0">{{ user.orders.count }}</h3>
+                                                    <small class="text-muted">Orders</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="card bg-light">
+                                                <div class="card-body text-center">
+                                                    <h3 class="mb-0">{{ user.solutions.count }}</h3>
+                                                    <small class="text-muted">Solutions</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="card bg-light">
+                                                <div class="card-body text-center">
+                                                    <h3 class="mb-0">{{ user.liked_solutions.count }}</h3>
+                                                    <small class="text-muted">Liked Solutions</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="card bg-light">
+                                                <div class="card-body text-center">
+                                                    <h3 class="mb-0">{{ user.hardware_listings.count }}</h3>
+                                                    <small class="text-muted">Hardware Listed</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Recent Activity -->
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                            <h4 class="mb-0"><i class="fas fa-history me-2"></i>Recent Activity</h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="timeline">
+                                {% for notification in user.notifications.all|slice:":5" %}
+                                <div class="timeline-item">
+                                    <div class="timeline-marker bg-primary"></div>
+                                    <div class="timeline-content">
+                                        <h5 class="timeline-title">{{ notification.get_notification_type_display }}</h5>
+                                        <p>{{ notification.content }}</p>
+                                        <p class="timeline-date text-muted">
+                                            <small>{{ notification.created_at|date:"F j, Y, g:i a" }}</small>
+                                        </p>
+                                    </div>
+                                </div>
+                                {% empty %}
+                                <div class="text-center py-4">
+                                    <i class="fas fa-bell-slash fa-3x text-muted mb-3"></i>
+                                    <p>No recent activity to display.</p>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Orders Tab -->
+                <div class="tab-pane fade" id="orders">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                            <h4 class="mb-0"><i class="fas fa-shopping-bag me-2"></i>Your Orders</h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Order ID</th>
+                                            <th>Date</th>
+                                            <th>Status</th>
+                                            <th>Total</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for order in user.orders.all %}
+                                        <tr>
+                                            <td>#{{ order.id }}</td>
+                                            <td>{{ order.created_at|date:"M d, Y" }}</td>
+                                            <td>
+                                                {% if order.status == 'pending' %}
+                                                    <span class="badge bg-warning">Pending</span>
+                                                {% elif order.status == 'processing' %}
+                                                    <span class="badge bg-info">Processing</span>
+                                                {% elif order.status == 'shipped' %}
+                                                    <span class="badge bg-primary">Shipped</span>
+                                                {% elif order.status == 'delivered' %}
+                                                    <span class="badge bg-success">Delivered</span>
+                                                {% elif order.status == 'cancelled' %}
+                                                    <span class="badge bg-danger">Cancelled</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>${{ order.total_price }}</td>
+                                            <td>
+                                                <a href="{% url 'TechRescueZoneApp:order_confirmation' order_id=order.id %}" class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="5" class="text-center py-4">
+                                                <i class="fas fa-shopping-cart fa-3x text-muted mb-3"></i>
+                                                <p>You haven't placed any orders yet.</p>
+                                                <a href="{% url 'TechRescueZoneApp:hardware_list' %}" class="btn btn-primary">
+                                                    <i class="fas fa-shopping-cart me-2"></i>Shop Now
+                                                </a>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Solutions Tab -->
+                <div class="tab-pane fade" id="solutions">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                            <h4 class="mb-0"><i class="fas fa-lightbulb me-2"></i>Your Solutions</h4>
+                            <a href="{% url 'TechRescueZoneApp:create_solution' %}" class="btn btn-primary btn-sm">
+                                <i class="fas fa-plus me-1"></i>Create Solution
+                            </a>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-4">
+                                {% for solution in user.solutions.all %}
+                                <div class="col-md-6">
+                                    <div class="card h-100">
+                                        <div class="card-body">
+                                            <h5 class="card-title">{{ solution.title }}</h5>
+                                            <p class="card-text text-muted">{{ solution.summary|truncatechars:100 }}</p>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <span class="badge bg-secondary me-1">{{ solution.category.name }}</span>
+                                                    <small class="text-muted">{{ solution.created_at|date:"M d, Y" }}</small>
+                                                </div>
+                                                <div>
+                                                    <span class="me-2"><i class="fas fa-eye"></i> {{ solution.views }}</span>
+                                                    <span><i class="fas fa-heart"></i> {{ solution.get_like_count }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="card-footer bg-white">
+                                            <div class="btn-group w-100">
+                                                <a href="{% url 'TechRescueZoneApp:solution_detail' solution_id=solution.id %}" class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-eye me-1"></i>View
+                                                </a>
+                                                <a href="{% url 'TechRescueZoneApp:edit_solution' solution_id=solution.id %}" class="btn btn-sm btn-outline-secondary">
+                                                    <i class="fas fa-edit me-1"></i>Edit
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% empty %}
+                                <div class="col-12 text-center py-4">
+                                    <i class="fas fa-lightbulb fa-3x text-muted mb-3"></i>
+                                    <p>You haven't created any solutions yet.</p>
+                                    <a href="{% url 'TechRescueZoneApp:create_solution' %}" class="btn btn-primary">
+                                        <i class="fas fa-plus me-2"></i>Create Your First Solution
+                                    </a>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Liked Solutions Tab -->
+                <div class="tab-pane fade" id="liked">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-white">
+                            <h4 class="mb-0"><i class="fas fa-heart me-2"></i>Liked Solutions</h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-4">
+                                {% for solution in user.liked_solutions.all %}
+                                <div class="col-md-6">
+                                    <div class="card h-100">
+                                        <div class="card-body">
+                                            <h5 class="card-title">{{ solution.title }}</h5>
+                                            <p class="card-text text-muted">{{ solution.summary|truncatechars:100 }}</p>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <span class="badge bg-secondary me-1">{{ solution.category.name }}</span>
+                                                    <small class="text-muted">by {{ solution.author.username }}</small>
+                                                </div>
+                                                <div>
+                                                    <span class="me-2"><i class="fas fa-eye"></i> {{ solution.views }}</span>
+                                                    <span><i class="fas fa-heart"></i> {{ solution.get_like_count }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="card-footer bg-white">
+                                            <a href="{% url 'TechRescueZoneApp:solution_detail' solution_id=solution.id %}" class="btn btn-sm btn-outline-primary w-100">
+                                                <i class="fas fa-eye me-1"></i>View Solution
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% empty %}
+                                <div class="col-12 text-center py-4">
+                                    <i class="fas fa-heart fa-3x text-muted mb-3"></i>
+                                    <p>You haven't liked any solutions yet.</p>
+                                    <a href="{% url 'TechRescueZoneApp:solution_list' %}" class="btn btn-primary">
+                                        <i class="fas fa-search me-2"></i>Explore Solutions
+                                    </a>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Settings Tab -->
+                <div class="tab-pane fade" id="settings">
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-white">
+                            <h4 class="mb-0"><i class="fas fa-user-cog me-2"></i>Account Settings</h4>
+                        </div>
+                        <div class="card-body">
+                            <form method="post" action="" class="mb-4">
+                                {% csrf_token %}
+                                <h5 class="mb-3">Personal Information</h5>
+                                
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label for="first_name" class="form-label">First Name</label>
+                                        <input type="text" class="form-control" id="first_name" name="first_name" value="{{ user.first_name }}">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="last_name" class="form-label">Last Name</label>
+                                        <input type="text" class="form-control" id="last_name" name="last_name" value="{{ user.last_name }}">
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="email" class="form-label">Email Address</label>
+                                    <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}" readonly>
+                                    <small class="text-muted">To change your email, please contact support.</small>
+                                </div>
+                                
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save me-2"></i>Save Changes
+                                    </button>
+                                </div>
+                            </form>
+                            
+                            <hr>
+                            
+                            <h5 class="mb-3">Change Password</h5>
+                            <form method="post" action="">
+                                {% csrf_token %}
+                                <div class="mb-3">
+                                    <label for="current_password" class="form-label">Current Password</label>
+                                    <input type="password" class="form-control" id="current_password" name="current_password" required>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="new_password" class="form-label">New Password</label>
+                                    <input type="password" class="form-control" id="new_password" name="new_password" required>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="confirm_password" class="form-label">Confirm New Password</label>
+                                    <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                                </div>
+                                
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-key me-2"></i>Change Password
+                                    </button>
+                                </div>
+                            </form>
+                            
+                            <hr>
+                            
+                            <h5 class="mb-3">Danger Zone</h5>
+                            <div class="alert alert-danger">
+                                <h6 class="alert-heading">Delete Account</h6>
+                                <p>Once you delete your account, there is no going back. Please be certain.</p>
+                                <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteAccountModal">
+                                    <i class="fas fa-trash-alt me-2"></i>Delete Account
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Account Modal -->
+<div class="modal fade" id="deleteAccountModal" tabindex="-1" aria-labelledby="deleteAccountModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteAccountModalLabel">Confirm Account Deletion</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Warning:</strong> This action cannot be undone.
+                </div>
+                <p>Are you sure you want to delete your account? All of your data will be permanently removed, including:</p>
+                <ul>
+                    <li>Your profile information</li>
+                    <li>Your solutions and comments</li>
+                    <li>Your order history</li>
+                    <li>Your hardware listings (if any)</li>
+                </ul>
+                <form id="deleteAccountForm" method="post" action="">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Enter your password to confirm</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="deleteAccountForm" class="btn btn-danger">
+                    <i class="fas fa-trash-alt me-2"></i>Delete Account
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Timeline styling */
+    .timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+    
+    .timeline:before {
+        content: '';
+        position: absolute;
+        left: 10px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #e9ecef;
+    }
+    
+    .timeline-item {
+        position: relative;
+        margin-bottom: 30px;
+    }
+    
+    .timeline-marker {
+        position: absolute;
+        left: -30px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+    }
+    
+    .timeline-content {
+        padding-bottom: 20px;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .timeline-title {
+        margin-bottom: 5px;
+        font-size: 1rem;
+    }
+    
+    .timeline-date {
+        margin-top: 5px;
+    }
+    
+    /* Tab content animation */
+    .tab-pane.fade {
+        transition: opacity 0.3s ease-in-out;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Handle tab navigation with URL hash
+        var hash = window.location.hash;
+        if (hash) {
+            $('.list-group-item[href="' + hash + '"]').tab('show');
+        }
+        
+        // Update URL hash when tab changes
+        $('.list-group-item').on('shown.bs.tab', function (e) {
+            window.location.hash = e.target.hash;
+        });
+        
+        // Password confirmation validation
+        $('#confirm_password').on('keyup', function() {
+            if ($('#new_password').val() == $('#confirm_password').val()) {
+                $('#confirm_password').removeClass('is-invalid').addClass('is-valid');
+            } else {
+                $('#confirm_password').removeClass('is-valid').addClass('is-invalid');
+            }
+        });
+    });
+</script>
+{% endblock %}
+

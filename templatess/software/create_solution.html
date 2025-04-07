@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+{% load widget_tweaks %}
+
+{% block title %}Create Solution - Tech Rescue Zone{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'TechRescueZoneApp:home' %}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'TechRescueZoneApp:solution_list' %}">Solutions</a></li>
+                    <li class="breadcrumb-item active">Create Solution</li>
+                </ol>
+            </nav>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Create a New Solution</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-4">
+                            <label for="{{ form.title.id_for_label }}" class="form-label">Title</label>
+                            {{ form.title|add_class:"form-control form-control-lg" }}
+                            {% if form.title.errors %}
+                            <div class="text-danger">
+                                {% for error in form.title.errors %}
+                                {{ error }}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            <small class="text-muted">A clear, descriptive title for your solution</small>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="{{ form.category.id_for_label }}" class="form-label">Category</label>
+                            {{ form.category|add_class:"form-select" }}
+                            {% if form.category.errors %}
+                            <div class="text-danger">
+                                {% for error in form.category.errors %}
+                                {{ error }}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            <small class="text-muted">Select the most appropriate category for your solution</small>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="{{ form.summary.id_for_label }}" class="form-label">Summary</label>
+                            <small class="text-muted d-block mb-2">A brief overview of your solution (max 200 words)</small>
+                            {{ form.summary|add_class:"form-control"|attr:"rows:3" }}
+                            {% if form.summary.errors %}
+                            <div class="text-danger">
+                                {% for error in form.summary.errors %}
+                                {{ error }}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            <small class="character-count text-muted">0 characters</small>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="{{ form.content.id_for_label }}" class="form-label">Content</label>
+                            <small class="text-muted d-block mb-2">Detailed description of your solution. You'll add step-by-step instructions in the next page.</small>
+                            {{ form.content|add_class:"form-control"|attr:"rows:6" }}
+                            {% if form.content.errors %}
+                            <div class="text-danger">
+                                {% for error in form.content.errors %}
+                                {{ error }}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="alert alert-info mb-4">
+                            <div class="d-flex">
+                                <div class="me-3">
+                                    <i class="fas fa-info-circle fa-2x"></i>
+                                </div>
+                                <div>
+                                    <h5 class="alert-heading">Next Steps</h5>
+                                    <p class="mb-0">After creating your solution, you'll be able to add step-by-step instructions and images to help users follow your solution.</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'TechRescueZoneApp:solution_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-2"></i>Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                Continue to Add Steps <i class="fas fa-arrow-right ms-1"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card mt-4 shadow-sm">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">Tips for Creating Great Solutions</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="d-flex">
+                                <div class="me-3 text-primary">
+                                    <i class="fas fa-lightbulb fa-2x"></i>
+                                </div>
+                                <div>
+                                    <h5>Be Clear and Concise</h5>
+                                    <p>Use simple language and avoid technical jargon when possible.</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="d-flex">
+                                <div class="me-3 text-primary">
+                                    <i class="fas fa-users fa-2x"></i>
+                                </div>
+                                <div>
+                                    <h5>Consider Your Audience</h5>
+                                    <p>Think about who will be using your solution and their technical level.</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="d-flex">
+                                <div class="me-3 text-primary">
+                                    <i class="fas fa-check-circle fa-2x"></i>
+                                </div>
+                                <div>
+                                    <h5>Test Your Solution</h5>
+                                    <p>Make sure your solution works before sharing it with others.</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="d-flex">
+                                <div class="me-3 text-primary">
+                                    <i class="fas fa-question-circle fa-2x"></i>
+                                </div>
+                                <div>
+                                    <h5>Address Common Questions</h5>
+                                    <p>Anticipate questions users might have and address them in your solution.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Add character counter for summary
+        const summaryField = $('#{{ form.summary.id_for_label }}');
+        const characterCount = $('.character-count');
+        
+        summaryField.on('input', function() {
+            const count = $(this).val().length;
+            characterCount.text(count + ' characters');
+            
+            // Optional: Add visual feedback for length
+            if (count > 1000) {
+                characterCount.removeClass('text-muted').addClass('text-danger');
+            } else if (count > 800) {
+                characterCount.removeClass('text-muted text-danger').addClass('text-warning');
+            } else {
+                characterCount.removeClass('text-warning text-danger').addClass('text-muted');
+            }
+        });
+        
+        // Trigger initial count
+        summaryField.trigger('input');
+    });
+</script>
+{% endblock %}
+

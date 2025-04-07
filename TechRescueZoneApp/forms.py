@@ -2,7 +2,11 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from django.forms import inlineformset_factory
-from .models import (Profile, Hardware, HardwareImage, HardwareReview,Order,Solution, SolutionStep, SolutionImage,)
+from .models import (
+    Profile, Hardware, HardwareImage, HardwareReview, Order,
+    Solution, SolutionStep, SolutionImage, SolutionComment, SolutionRating,
+    Message
+)
 
 class UserRegisterForm(UserCreationForm):
     email = forms.EmailField()
@@ -48,6 +52,14 @@ class HardwareReviewForm(forms.ModelForm):
             'comment': forms.Textarea(attrs={'rows': 3}),
         }
 
+class OrderForm(forms.ModelForm):
+    class Meta:
+        model = Order
+        fields = ['shipping_address']
+        widgets = {
+            'shipping_address': forms.Textarea(attrs={'rows': 3}),
+        }
+
 class SolutionForm(forms.ModelForm):
     class Meta:
         model = Solution
@@ -78,11 +90,36 @@ class SolutionImageForm(forms.ModelForm):
         model = SolutionImage
         fields = ['image', 'caption']
 
-
-class OrderForm(forms.ModelForm):
+class SolutionCommentForm(forms.ModelForm):
     class Meta:
-        model = Order
-        fields = ['shipping_address']
+        model = SolutionComment
+        fields = ['content']
         widgets = {
-            'shipping_address': forms.Textarea(attrs={'rows': 3}),
+            'content': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Add a comment...'}),
+        }
+        labels = {
+            'content': '',
+        }
+
+class SolutionRatingForm(forms.ModelForm):
+    class Meta:
+        model = SolutionRating
+        fields = ['rating']
+        widgets = {
+            'rating': forms.RadioSelect(attrs={'class': 'rating-input'}),
+        }
+
+class MessageForm(forms.ModelForm):
+    class Meta:
+        model = Message
+        fields = ['content']
+        widgets = {
+            'content': forms.Textarea(attrs={
+                'rows': 2, 
+                'placeholder': 'Type your message here...',
+                'class': 'message-input',
+            }),
+        }
+        labels = {
+            'content': '',
         }

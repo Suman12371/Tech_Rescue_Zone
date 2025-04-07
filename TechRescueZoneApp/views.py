@@ -12,8 +12,16 @@ from django.db.models import Avg, Q, Count, Max
 from django.http import JsonResponse
 import random
 import uuid
-from .models import (Profile, Category, Hardware, HardwareImage, HardwareReview,Order, OrderItem, SolutionCategory, Solution, SolutionStep,SolutionImage)
-from .forms import (UserRegisterForm, EmailVerificationForm, ProfileForm, HardwareForm, HardwareImageFormSet,HardwareReviewForm,OrderForm, SolutionForm, SolutionStepFormSet)
+from .models import (
+    Profile, Category, Hardware, HardwareImage, HardwareReview, Order, OrderItem,
+    SolutionCategory, Solution, SolutionStep, SolutionComment, SolutionRating,
+    Conversation, Message, Notification, Payment, PaymentMethod, SolutionImage
+)
+from .forms import (
+    UserRegisterForm, EmailVerificationForm, ProfileForm, HardwareForm, HardwareImageFormSet,
+    HardwareReviewForm, OrderForm, SolutionForm, SolutionStepFormSet, SolutionCommentForm,
+    SolutionRatingForm, MessageForm
+)
 
 User = get_user_model()
 
@@ -177,6 +185,26 @@ def export_profile(request):
     return render(request, 'profiles/export_profile.html')
 
 
+def dashboard(request):
+    if not request.user.is_staff:
+        messages.error(request, 'You do not have permission to access the admin dashboard.')
+        return redirect('TechRescueZoneApp:home')
+    
+    total_users = User.objects.count()
+    total_solutions = Solution.objects.count()
+    total_hardware = Hardware.objects.count()
+    recent_users = User.objects.order_by('-date_joined')[:5]
+    recent_solutions = Solution.objects.order_by('-created_at')[:5]
+    
+    context = {
+        'total_users': total_users,
+        'total_solutions': total_solutions,
+        'total_hardware': total_hardware,
+        'recent_users': recent_users,
+        'recent_solutions': recent_solutions,
+    }
+    return render(request, 'dashboard.html', context)
+
 def hardware_list(request):
     category_id = request.GET.get('category')
     min_price = request.GET.get('min_price')
@@ -314,6 +342,82 @@ def cart(request):
     return render(request, 'hardware/cart.html', context)
 
 @login_required
+def checkout(request):
+    if 'cart' not in request.session or not request.session['cart']:
+        messages.error(request, 'Your cart is empty.')
+        return redirect('TechRescueZoneApp:cart')
+    
+    if request.method == 'POST':
+        form = OrderForm(request.POST)
+        if form.is_valid():
+            order = form.save(commit=False)
+            order.user = request.user
+            
+            total = 0
+            for hardware_id, item_data in request.session['cart'].items():
+                quantity = item_data['quantity']
+                price = item_data['price']
+                total += quantity * price
+            
+            order.total_price = total
+            order.save()
+            
+            for hardware_id, item_data in request.session['cart'].items():
+                hardware = get_object_or_404(Hardware, id=hardware_id)
+                quantity = item_data['quantity']
+                price = item_data['price']
+                
+                OrderItem.objects.create(
+                    order=order,
+                    hardware=hardware,
+                    quantity=quantity,
+                    price=price,
+                )
+                
+                hardware.stock -= quantity
+                hardware.save()
+            
+            del request.session['cart']
+            request.session.modified = True
+            
+            messages.success(request, 'Your order has been placed successfully!')
+            return redirect('TechRescueZoneApp:order_confirmation', order_id=order.id)
+    else:
+        form = OrderForm()
+    
+    cart_items = []
+    subtotal = 0
+    
+    for hardware_id, item_data in request.session['cart'].items():
+        hardware = get_object_or_404(Hardware, id=hardware_id)
+        quantity = item_data['quantity']
+        price = item_data['price']
+        item_total = quantity * price
+        
+        cart_items.append({
+            'hardware': hardware,
+            'quantity': quantity,
+            'price': price,
+            'total': item_total,
+        })
+        
+        subtotal += item_total
+    
+    shipping = 10.00
+    tax = subtotal * 0.08
+    total = subtotal + shipping + tax
+    
+    context = {
+        'form': form,
+        'cart_items': cart_items,
+        'subtotal': subtotal,
+        'shipping': shipping,
+        'tax': tax,
+        'total': total,
+    }
+    return render(request, 'hardware/checkout.html', context)
+
+@login_required
 def order_confirmation(request, order_id):
     order = get_object_or_404(Order, id=order_id, user=request.user)
     
@@ -362,6 +466,7 @@ def remove_from_cart(request, hardware_id):
                 messages.success(request, f'{hardware.name} removed from your cart.')
     
     return redirect('TechRescueZoneApp:cart')
+
 
 
 
@@ -771,7 +876,124 @@ def like_solution(request, solution_id):
     
     return redirect('TechRescueZoneApp:solution_detail', solution_id=solution.id)
 
+@login_required
+def chat_list(request):
+    conversations = Conversation.objects.filter(participants=request.user)
+    
+    conversations = conversations.annotate(
+        latest_message_time=Max('messages__created_at'),
+        unread_count=Count(
+            'messages',
+            filter=Q(messages__is_read=False) & ~Q(messages__sender=request.user)
+        )
+    ).order_by('-latest_message_time')
+    
+    conversation_data = []
+    for conversation in conversations:
+        other_user = conversation.get_other_participant(request.user)
+        latest_message = conversation.messages.order_by('-created_at').first()
+        
+        conversation_data.append({
+            'id': conversation.id,
+            'other_user': other_user,
+            'latest_message': latest_message,
+            'unread_count': conversation.unread_count,
+        })
+    
+    context = {
+        'conversations': conversation_data,
+    }
+    return render(request, 'chat/chat_list.html', context)
 
+@login_required
+def chat_detail(request, conversation_id):
+    conversation = get_object_or_404(Conversation, id=conversation_id, participants=request.user)
+    other_user = conversation.get_other_participant(request.user)
+    
+    unread_messages = conversation.messages.filter(is_read=False).exclude(sender=request.user)
+    unread_messages.update(is_read=True)
+    
+    if request.method == 'POST':
+        form = MessageForm(request.POST)
+        if form.is_valid():
+            message = form.save(commit=False)
+            message.conversation = conversation
+            message.sender = request.user
+            message.save()
+            
+            Notification.objects.create(
+                recipient=other_user,
+                sender=request.user,
+                notification_type='message',
+                content=f"New message from {request.user.username}",
+                link=f"/chat/{conversation.id}/"
+            )
+            
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'status': 'success',
+                    'message': {
+                        'id': message.id,
+                        'content': message.content,
+                        'sender_id': message.sender.id,
+                        'created_at': message.created_at.strftime('%b %d, %Y, %I:%M %p'),
+                    }
+                })
+            
+            return redirect('TechRescueZoneApp:chat_detail', conversation_id=conversation.id)
+    else:
+        form = MessageForm()
+    
+    messages = conversation.messages.all()
+    
+    context = {
+        'conversation': conversation,
+        'other_user': other_user,
+        'messages': messages,
+        'form': form,
+    }
+    return render(request, 'chat/chat_detail.html', context)
+
+@login_required
+def start_conversation(request, user_id):
+    other_user = get_object_or_404(User, id=user_id)
+    
+    existing_conversation = Conversation.objects.filter(
+        participants=request.user
+    ).filter(
+        participants=other_user
+    ).first()
+    
+    if existing_conversation:
+        return redirect('TechRescueZoneApp:chat_detail', conversation_id=existing_conversation.id)
+    
+    conversation = Conversation.objects.create()
+    conversation.participants.add(request.user, other_user)
+    
+    return redirect('TechRescueZoneApp:chat_detail', conversation_id=conversation.id)
+
+@login_required
+def get_new_messages(request, conversation_id):
+    conversation = get_object_or_404(Conversation, id=conversation_id, participants=request.user)
+    
+    last_message_id = request.GET.get('last_message_id', 0)
+    
+    new_messages = conversation.messages.filter(id__gt=last_message_id)
+    
+    new_messages.filter(is_read=False).exclude(sender=request.user).update(is_read=True)
+    
+    message_data = []
+    for message in new_messages:
+        message_data.append({
+            'id': message.id,
+            'content': message.content,
+            'sender_id': message.sender.id,
+            'created_at': message.created_at.strftime('%b %d, %Y, %I:%M %p'),
+        })
+    
+    return JsonResponse({
+        'messages': message_data,
+    })
 
 @login_required
 def notification_list(request):
@@ -781,12 +1003,6 @@ def notification_list(request):
         'notifications': notifications,
     }
     return render(request, 'notification_list.html', context)
-
-def notification_count(request):
-    if request.user.is_authenticated:
-        count = request.user.notifications.filter(is_read=False).count()
-        return {'notification_count': count}
-    return {'notification_count': 0}
 
 @login_required
 def mark_as_read(request, notification_id):
@@ -801,7 +1017,6 @@ def mark_as_read(request, notification_id):
         return redirect(notification.link)
     return redirect('TechRescueZoneApp:notification_list')
 
-
 @login_required
 def mark_all_as_read(request):
     request.user.notifications.filter(is_read=False).update(is_read=True)
@@ -810,3 +1025,136 @@ def mark_all_as_read(request):
         return JsonResponse({'status': 'success'})
     
     return redirect('TechRescueZoneApp:notification_list')
+
+def notification_count(request):
+    if request.user.is_authenticated:
+        count = request.user.notifications.filter(is_read=False).count()
+        return {'notification_count': count}
+    return {'notification_count': 0}
+
+@login_required
+def payment_process(request, order_id):
+    order = get_object_or_404(Order, id=order_id, user=request.user)
+    
+    if Payment.objects.filter(order=order, status='completed').exists():
+        messages.info(request, 'This order has already been paid for.')
+        return redirect('TechRescueZoneApp:order_confirmation', order_id=order.id)
+    
+    payment_methods = PaymentMethod.objects.filter(user=request.user)
+    
+    if request.method == 'POST':
+        payment_method_type = request.POST.get('payment_method')
+        
+        payment = Payment.objects.create(
+            order=order,
+            user=request.user,
+            amount=order.total_price,
+            payment_method=payment_method_type,
+            status='pending',
+        )
+        
+        payment.status = 'completed'
+        payment.transaction_id = f"SIMULATED-{payment.id}"
+        payment.save()
+        
+        order.status = 'processing'
+        order.save()
+        
+        Notification.objects.create(
+            recipient=request.user,
+            notification_type='order_status',
+            content=f'Your payment for order #{order.id} has been processed successfully.',
+            link=f'/hardware/order-confirmation/{order.id}/',
+        )
+        
+        messages.success(request, 'Payment processed successfully!')
+        return redirect('TechRescueZoneApp:order_confirmation', order_id=order.id)
+    
+    context = {
+        'order': order,
+        'payment_methods': payment_methods,
+    }
+    return render(request, 'hardware/payment_process.html', context)
+
+@login_required
+def payment_methods(request):
+    payment_methods = PaymentMethod.objects.filter(user=request.user)
+    
+    context = {
+        'payment_methods': payment_methods,
+    }
+    return render(request, 'hardware/payment_methods.html', context)
+
+@login_required
+def add_payment_method(request):
+    if request.method == 'POST':
+        method_type = request.POST.get('method_type')
+        
+        if method_type == 'credit_card':
+            card_type = request.POST.get('card_type')
+            card_number = request.POST.get('card_number')
+            expiry_date = request.POST.get('expiry_date')
+            
+            last_four = card_number[-4:] if len(card_number) >= 4 else card_number
+            
+            PaymentMethod.objects.create(
+                user=request.user,
+                method_type='credit_card',
+                card_type=card_type,
+                last_four=last_four,
+                expiry_date=expiry_date,
+                is_default=not PaymentMethod.objects.filter(user=request.user).exists(),
+            )
+            
+            messages.success(request, 'Credit card added successfully!')
+        
+        elif method_type == 'paypal':
+            PaymentMethod.objects.create(
+                user=request.user,
+                method_type='paypal',
+                is_default=not PaymentMethod.objects.filter(user=request.user).exists(),
+            )
+            
+            messages.success(request, 'PayPal account added successfully!')
+        
+        return redirect('TechRescueZoneApp:payment_methods')
+    
+    context = {
+        'card_types': PaymentMethod.CARD_TYPE_CHOICES,
+    }
+    return render(request, 'hardware/add_payment_method.html', context)
+
+@login_required
+def delete_payment_method(request, method_id):
+    payment_method = get_object_or_404(PaymentMethod, id=method_id, user=request.user)
+    
+    if request.method == 'POST':
+        was_default = payment_method.is_default
+        payment_method.delete()
+        
+        if was_default:
+            other_method = PaymentMethod.objects.filter(user=request.user).first()
+            if other_method:
+                other_method.is_default = True
+                other_method.save()
+        
+        messages.success(request, 'Payment method deleted successfully!')
+        return redirect('TechRescueZoneApp:payment_methods')
+    
+    context = {
+        'payment_method': payment_method,
+    }
+    return render(request, 'hardware/delete_payment_method.html', context)
+
+@login_required
+def set_default_payment_method(request, method_id):
+    payment_method = get_object_or_404(PaymentMethod, id=method_id, user=request.user)
+    
+    PaymentMethod.objects.filter(user=request.user).update(is_default=False)
+    
+    payment_method.is_default = True
+    payment_method.save()
+    
+    messages.success(request, 'Default payment method updated!')
+    return redirect('TechRescueZoneApp:payment_methods')
+

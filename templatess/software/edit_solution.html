@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+{% load widget_tweaks %}
+{% block title %}Edit Solution - Tech Rescue Zone{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-10 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="mb-0">Edit Solution</h3>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.title.id_for_label }}" class="form-label">Title</label>
+                        {{ form.title|add_class:"form-control" }}
+                        {% if form.title.errors %}
+                        <div class="text-danger">
+                            {% for error in form.title.errors %}
+                            {{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.category.id_for_label }}" class="form-label">Category</label>
+                        {{ form.category|add_class:"form-select" }}
+                        {% if form.category.errors %}
+                        <div class="text-danger">
+                            {% for error in form.category.errors %}
+                            {{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.summary.id_for_label }}" class="form-label">Summary</label>
+                        <small class="text-muted d-block mb-2">A brief overview of your solution (max 200 words)</small>
+                        {{ form.summary|add_class:"form-control" }}
+                        {% if form.summary.errors %}
+                        <div class="text-danger">
+                            {% for error in form.summary.errors %}
+                            {{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.content.id_for_label }}" class="form-label">Content</label>
+                        <small class="text-muted d-block mb-2">Detailed description of your solution.</small>
+                        {{ form.content|add_class:"form-control" }}
+                        {% if form.content.errors %}
+                        <div class="text-danger">
+                            {% for error in form.content.errors %}
+                            {{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <a href="{% url 'TechRescueZoneApp:solution_detail' solution_id=solution.id %}" class="btn btn-outline-secondary me-2">
+                                <i class="fas fa-arrow-left me-1"></i> Back to Solution
+                            </a>
+                            <a href="{% url 'TechRescueZoneApp:edit_solution_steps' solution_id=solution.id %}" class="btn btn-outline-primary">
+                                <i class="fas fa-list-ol me-1"></i> Edit Steps
+                            </a>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i> Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">Danger Zone</h4>
+            </div>
+            <div class="card-body bg-light">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="text-danger mb-1">Delete this solution</h5>
+                        <p class="mb-0">Once you delete a solution, there is no going back. Please be certain.</p>
+                    </div>
+                    <a href="{% url 'TechRescueZoneApp:delete_solution' solution_id=solution.id %}" class="btn btn-danger">
+                        <i class="fas fa-trash-alt me-1"></i> Delete Solution
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Add character counter for summary
+        const summaryField = $('#{{ form.summary.id_for_label }}');
+        const summaryLabel = $('label[for="{{ form.summary.id_for_label }}"]');
+        
+        summaryField.after('<small class="text-muted d-block mt-1 character-count">0 characters</small>');
+        
+        summaryField.on('input', function() {
+            const count = $(this).val().length;
+            $(this).next('.character-count').text(count + ' characters');
+        });
+        
+        // Trigger initial count
+        summaryField.trigger('input');
+    });
+</script>
+{% endblock %}
