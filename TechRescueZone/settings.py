@@ -136,6 +136,13 @@ EMAIL_PORT = 587
 EMAIL_HOST_USER = 'gamecrownarena4896@gmail.com'
 EMAIL_HOST_PASSWORD = 'nlpf qwse foqe iaxv'
 
+
+
+PUSHER_APP_ID = "1937833"
+PUSHER_KEY = "6875f5a5d3cde707946d"
+PUSHER_SECRET = "448d5c2a30b01561d568"
+PUSHER_CLUSTER = "ap2"
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 

@@ -1,4 +1,3 @@
-
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.models import User
 from django.contrib.auth import logout, authenticate, login, get_user_model
@@ -12,6 +11,7 @@ from django.db.models import Avg, Q, Count, Max
 from django.http import JsonResponse
 import random
 import uuid
+import pusher
 from .models import (
     Profile, Category, Hardware, HardwareImage, HardwareReview, Order, OrderItem,
     SolutionCategory, Solution, SolutionStep, SolutionComment, SolutionRating,
@@ -25,14 +25,21 @@ from .forms import (
 
 User = get_user_model()
 
+# Initialize Pusher client
+pusher_client = pusher.Pusher(
+    app_id=settings.PUSHER_APP_ID,
+    key=settings.PUSHER_KEY,
+    secret=settings.PUSHER_SECRET,
+    cluster=settings.PUSHER_CLUSTER,
+    ssl=True
+)
+
 def home_view(request):
     featured_hardware = Hardware.objects.filter(is_featured=True)
-    
-    
+
     for hardware in featured_hardware:
-        
         hardware.primary_image = hardware.images.filter(is_primary=True).first() or hardware.images.first()
-    
+
     context = {'featured_hardware': featured_hardware}
     return render(request, 'home.html', context)
 
@@ -52,10 +59,8 @@ def register_view(request):
                 messages.error(request, 'Email is taken.')
                 return redirect('TechRescueZoneApp:register')
             
-            
             verification_code = str(random.randint(100000, 999999))
             auth_token = str(uuid.uuid4())
-            
             
             request.session['registration_data'] = {
                 'username': username,
@@ -65,7 +70,6 @@ def register_view(request):
                 'verification_code': verification_code,
                 'auth_token': auth_token,
             }
-            
             
             send_verification_code(email, verification_code)
             return redirect('TechRescueZoneApp:verify_email')
@@ -88,13 +92,11 @@ def verify_email(request):
                 messages.error(request, 'Invalid verification code.')
                 return redirect('TechRescueZoneApp:verify_email')
 
-            
             user = User.objects.create_user(
                 username=registration_data['username'],
                 email=registration_data['email'],
                 password=registration_data['password'],
             )
-            
             
             Profile.objects.create(
                 user=user,
@@ -103,10 +105,8 @@ def verify_email(request):
                 auth_token=registration_data['auth_token'],
             )
 
-            
             del request.session['registration_data']
             
-           
             send_success_email(registration_data['email'])
             messages.success(request, 'Registration successful! Please log in.')
             return redirect('/login')
@@ -152,7 +152,7 @@ def login_view(request):
         
         login(request, user)
         return redirect('TechRescueZoneApp:home')
-    
+
     return render(request, 'registration/login.html')
 
 
@@ -176,8 +176,8 @@ class CustomPasswordResetConfirmView(PasswordResetConfirmView):
 
 class CustomPasswordResetCompleteView(PasswordResetCompleteView):
     template_name = 'password_reset_complete.html'
-    
-   
+
+
 def user_profile(request):
     return render(request, 'profiles/user_profile.html')
 
@@ -189,13 +189,13 @@ def dashboard(request):
     if not request.user.is_staff:
         messages.error(request, 'You do not have permission to access the admin dashboard.')
         return redirect('TechRescueZoneApp:home')
-    
+
     total_users = User.objects.count()
     total_solutions = Solution.objects.count()
     total_hardware = Hardware.objects.count()
     recent_users = User.objects.order_by('-date_joined')[:5]
     recent_solutions = Solution.objects.order_by('-created_at')[:5]
-    
+
     context = {
         'total_users': total_users,
         'total_solutions': total_solutions,
@@ -211,24 +211,24 @@ def hardware_list(request):
     max_price = request.GET.get('max_price')
     search_query = request.GET.get('search')
     sort_by = request.GET.get('sort_by', 'name')
-    
+
     hardware_items = Hardware.objects.all()
-    
+
     if category_id:
         hardware_items = hardware_items.filter(category_id=category_id)
-    
+
     if min_price:
         hardware_items = hardware_items.filter(price__gte=min_price)
-    
+
     if max_price:
         hardware_items = hardware_items.filter(price__lte=max_price)
-    
+
     if search_query:
         hardware_items = hardware_items.filter(
             Q(name__icontains=search_query) | 
             Q(description__icontains=search_query)
         )
-    
+
     if sort_by == 'price_low':
         hardware_items = hardware_items.order_by('price')
     elif sort_by == 'price_high':
@@ -237,9 +237,9 @@ def hardware_list(request):
         hardware_items = hardware_items.order_by('-created_at')
     else:
         hardware_items = hardware_items.order_by('name')
-    
+
     categories = Category.objects.all()
-    
+
     context = {
         'hardware_items': hardware_items,
         'categories': categories,
@@ -255,7 +255,7 @@ def hardware_detail(request, hardware_id):
     hardware = get_object_or_404(Hardware, id=hardware_id)
     reviews = hardware.reviews.all().order_by('-created_at')
     avg_rating = reviews.aggregate(Avg('rating'))['rating__avg'] or 0
-    
+
     if request.method == 'POST' and request.user.is_authenticated:
         review_form = HardwareReviewForm(request.POST)
         if review_form.is_valid():
@@ -274,9 +274,9 @@ def hardware_detail(request, hardware_id):
             return redirect('TechRescueZoneApp:hardware_detail', hardware_id=hardware.id)
     else:
         review_form = HardwareReviewForm()
-    
+
     related_hardware = Hardware.objects.filter(category=hardware.category).exclude(id=hardware.id)[:4]
-    
+
     context = {
         'hardware': hardware,
         'reviews': reviews,
@@ -290,17 +290,17 @@ def hardware_detail(request, hardware_id):
 def add_to_cart(request, hardware_id):
     hardware = get_object_or_404(Hardware, id=hardware_id)
     quantity = int(request.POST.get('quantity', 1))
-    
+
     if hardware.stock < quantity:
         messages.error(request, f'Sorry, only {hardware.stock} units available.')
         return redirect('TechRescueZoneApp:hardware_detail', hardware_id=hardware.id)
-    
+
     if 'cart' not in request.session:
         request.session['cart'] = {}
-    
+
     cart = request.session['cart']
     hardware_id_str = str(hardware_id)
-    
+
     if hardware_id_str in cart:
         cart[hardware_id_str]['quantity'] += quantity
     else:
@@ -309,7 +309,7 @@ def add_to_cart(request, hardware_id):
             'price': float(hardware.get_final_price()),
             'name': hardware.name,
         }
-    
+
     request.session.modified = True
     messages.success(request, f'{hardware.name} added to your cart.')
     return redirect('TechRescueZoneApp:cart')
@@ -318,7 +318,7 @@ def add_to_cart(request, hardware_id):
 def cart(request):
     cart_items = []
     total = 0
-    
+
     if 'cart' in request.session:
         for hardware_id, item_data in request.session['cart'].items():
             hardware = get_object_or_404(Hardware, id=hardware_id)
@@ -334,7 +334,7 @@ def cart(request):
             })
             
             total += item_total
-    
+
     context = {
         'cart_items': cart_items,
         'total': total,
@@ -346,7 +346,7 @@ def checkout(request):
     if 'cart' not in request.session or not request.session['cart']:
         messages.error(request, 'Your cart is empty.')
         return redirect('TechRescueZoneApp:cart')
-    
+
     if request.method == 'POST':
         form = OrderForm(request.POST)
         if form.is_valid():
@@ -384,10 +384,10 @@ def checkout(request):
             return redirect('TechRescueZoneApp:order_confirmation', order_id=order.id)
     else:
         form = OrderForm()
-    
+
     cart_items = []
     subtotal = 0
-    
+
     for hardware_id, item_data in request.session['cart'].items():
         hardware = get_object_or_404(Hardware, id=hardware_id)
         quantity = item_data['quantity']
@@ -402,11 +402,11 @@ def checkout(request):
         })
         
         subtotal += item_total
-    
+
     shipping = 10.00
     tax = subtotal * 0.08
     total = subtotal + shipping + tax
-    
+
     context = {
         'form': form,
         'cart_items': cart_items,
@@ -420,7 +420,7 @@ def checkout(request):
 @login_required
 def order_confirmation(request, order_id):
     order = get_object_or_404(Order, id=order_id, user=request.user)
-    
+
     context = {
         'order': order,
     }
@@ -449,7 +449,7 @@ def update_cart_item(request, hardware_id):
                 
                 request.session.modified = True
                 messages.success(request, 'Cart updated successfully.')
-    
+
     return redirect('TechRescueZoneApp:cart')
 
 @login_required
@@ -464,15 +464,11 @@ def remove_from_cart(request, hardware_id):
                 del cart[hardware_id_str]
                 request.session.modified = True
                 messages.success(request, f'{hardware.name} removed from your cart.')
-    
+
     return redirect('TechRescueZoneApp:cart')
-
-
-
 
 @login_required
 def add_hardware(request):
-    
     if request.method == 'POST':
         form = HardwareForm(request.POST)
         formset = HardwareImageFormSet(request.POST, request.FILES)
@@ -492,7 +488,7 @@ def add_hardware(request):
     else:
         form = HardwareForm()
         formset = HardwareImageFormSet()
-    
+
     context = {
         'form': form,
         'formset': formset,
@@ -502,11 +498,11 @@ def add_hardware(request):
 @login_required
 def edit_hardware(request, hardware_id):
     hardware = get_object_or_404(Hardware, id=hardware_id)
-    
+
     if hardware.seller != request.user and not request.user.is_staff:
         messages.error(request, 'You do not have permission to edit this hardware item.')
         return redirect('TechRescueZoneApp:hardware_detail', hardware_id=hardware.id)
-    
+
     if request.method == 'POST':
         form = HardwareForm(request.POST, instance=hardware)
         formset = HardwareImageFormSet(request.POST, request.FILES, instance=hardware)
@@ -519,7 +515,7 @@ def edit_hardware(request, hardware_id):
     else:
         form = HardwareForm(instance=hardware)
         formset = HardwareImageFormSet(instance=hardware)
-    
+
     context = {
         'form': form,
         'formset': formset,
@@ -530,16 +526,16 @@ def edit_hardware(request, hardware_id):
 @login_required
 def delete_hardware(request, hardware_id):
     hardware = get_object_or_404(Hardware, id=hardware_id)
-    
+
     if hardware.seller != request.user and not request.user.is_staff:
         messages.error(request, 'You do not have permission to delete this hardware item.')
         return redirect('TechRescueZoneApp:hardware_detail', hardware_id=hardware.id)
-    
+
     if request.method == 'POST':
         hardware.delete()
         messages.success(request, 'Hardware item deleted successfully!')
         return redirect('TechRescueZoneApp:hardware_list')
-    
+
     context = {
         'hardware': hardware,
     }
@@ -549,19 +545,19 @@ def solution_list(request):
     category_id = request.GET.get('category')
     search_query = request.GET.get('search')
     sort_by = request.GET.get('sort_by', 'newest')
-    
+
     solutions = Solution.objects.all()
-    
+
     if category_id:
         solutions = solutions.filter(category_id=category_id)
-    
+
     if search_query:
         solutions = solutions.filter(
             Q(title__icontains=search_query) | 
             Q(summary__icontains=search_query) |
             Q(content__icontains=search_query)
         )
-    
+
     if sort_by == 'popular':
         solutions = solutions.annotate(like_count=Count('likes')).order_by('-like_count')
     elif sort_by == 'top_rated':
@@ -570,9 +566,9 @@ def solution_list(request):
         solutions = solutions.order_by('-views')
     else:
         solutions = solutions.order_by('-created_at')
-    
+
     categories = SolutionCategory.objects.all()
-    
+
     context = {
         'solutions': solutions,
         'categories': categories,
@@ -586,10 +582,10 @@ def solution_detail(request, solution_id):
     solution = get_object_or_404(Solution, id=solution_id)
     steps = solution.steps.all().order_by('order')
     comments = solution.comments.all().order_by('-created_at')
-    
+
     solution.views += 1
     solution.save()
-    
+
     if request.method == 'POST' and 'comment_submit' in request.POST and request.user.is_authenticated:
         comment_form = SolutionCommentForm(request.POST)
         if comment_form.is_valid():
@@ -610,7 +606,7 @@ def solution_detail(request, solution_id):
             return redirect('TechRescueZoneApp:solution_detail', solution_id=solution.id)
     else:
         comment_form = SolutionCommentForm()
-    
+
     if request.method == 'POST' and 'rating_submit' in request.POST and request.user.is_authenticated:
         rating_form = SolutionRatingForm(request.POST)
         if rating_form.is_valid():
@@ -644,13 +640,13 @@ def solution_detail(request, solution_id):
                 rating_form = SolutionRatingForm()
         else:
             rating_form = SolutionRatingForm()
-    
+
     user_liked = False
     if request.user.is_authenticated:
         user_liked = solution.likes.filter(id=request.user.id).exists()
-    
+
     related_solutions = Solution.objects.filter(category=solution.category).exclude(id=solution.id)[:4]
-    
+
     context = {
         'solution': solution,
         'steps': steps,
@@ -674,7 +670,7 @@ def create_solution(request):
             return redirect('TechRescueZoneApp:add_solution_steps', solution_id=solution.id)
     else:
         form = SolutionForm()
-    
+
     context = {
         'form': form,
     }
@@ -683,11 +679,11 @@ def create_solution(request):
 @login_required
 def edit_solution(request, solution_id):
     solution = get_object_or_404(Solution, id=solution_id)
-    
+
     if solution.author != request.user and not request.user.is_staff:
         messages.error(request, 'You do not have permission to edit this solution.')
         return redirect('TechRescueZoneApp:solution_detail', solution_id=solution.id)
-    
+
     if request.method == 'POST':
         form = SolutionForm(request.POST, instance=solution)
         if form.is_valid():
@@ -696,22 +692,21 @@ def edit_solution(request, solution_id):
             return redirect('TechRescueZoneApp:solution_detail', solution_id=solution.id)
     else:
         form = SolutionForm(instance=solution)
-    
+
     context = {
         'form': form,
         'solution': solution,
     }
     return render(request, 'software/edit_solution.html', context)
 
-    
 @login_required
 def add_solution_steps(request, solution_id):
     solution = get_object_or_404(Solution, id=solution_id)
-    
+
     if solution.author != request.user:
         messages.error(request, 'You do not have permission to edit this solution.')
         return redirect('TechRescueZoneApp:solution_detail', solution_id=solution.id)
-    
+
     if request.method == 'POST':
         # Debug information
         print(f"POST data: {request.POST}")
@@ -765,23 +760,21 @@ def add_solution_steps(request, solution_id):
             print(f"Non-form errors: {formset.non_form_errors()}")
     else:
         formset = SolutionStepFormSet(instance=solution)
-    
+
     context = {
         'solution': solution,
         'formset': formset,
     }
     return render(request, 'software/add_solution_steps.html', context)
 
-
-
 @login_required
 def edit_solution_steps(request, solution_id):
     solution = get_object_or_404(Solution, id=solution_id)
-    
+
     if solution.author != request.user and not request.user.is_staff:
         messages.error(request, 'You do not have permission to edit this solution.')
         return redirect('TechRescueZoneApp:solution_detail', solution_id=solution.id)
-    
+
     if request.method == 'POST':
         formset = SolutionStepFormSet(request.POST, instance=solution)
         if formset.is_valid():
@@ -820,29 +813,26 @@ def edit_solution_steps(request, solution_id):
             return redirect('TechRescueZoneApp:solution_detail', solution_id=solution.id)
     else:
         formset = SolutionStepFormSet(instance=solution)
-    
+
     context = {
         'solution': solution,
         'formset': formset,
     }
     return render(request, 'software/edit_solution_steps.html', context)
 
-
-
-
 @login_required
 def delete_solution(request, solution_id):
     solution = get_object_or_404(Solution, id=solution_id)
-    
+
     if solution.author != request.user and not request.user.is_staff:
         messages.error(request, 'You do not have permission to delete this solution.')
         return redirect('TechRescueZoneApp:solution_detail', solution_id=solution.id)
-    
+
     if request.method == 'POST':
         solution.delete()
         messages.success(request, 'Solution deleted successfully!')
         return redirect('TechRescueZoneApp:solution_list')
-    
+
     context = {
         'solution': solution,
     }
@@ -851,7 +841,7 @@ def delete_solution(request, solution_id):
 @login_required
 def like_solution(request, solution_id):
     solution = get_object_or_404(Solution, id=solution_id)
-    
+
     if solution.likes.filter(id=request.user.id).exists():
         solution.likes.remove(request.user)
         liked = False
@@ -867,19 +857,20 @@ def like_solution(request, solution_id):
                 content=f"{request.user.username} liked your solution '{solution.title}'",
                 link=f"/solutions/{solution.id}/"
             )
-    
+
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
         return JsonResponse({
             'liked': liked,
             'like_count': solution.get_like_count(),
         })
-    
+
     return redirect('TechRescueZoneApp:solution_detail', solution_id=solution.id)
 
 @login_required
 def chat_list(request):
+    # Get all conversations where the current user is a participant
     conversations = Conversation.objects.filter(participants=request.user)
-    
+
     conversations = conversations.annotate(
         latest_message_time=Max('messages__created_at'),
         unread_count=Count(
@@ -887,7 +878,7 @@ def chat_list(request):
             filter=Q(messages__is_read=False) & ~Q(messages__sender=request.user)
         )
     ).order_by('-latest_message_time')
-    
+
     conversation_data = []
     for conversation in conversations:
         other_user = conversation.get_other_participant(request.user)
@@ -899,17 +890,26 @@ def chat_list(request):
             'latest_message': latest_message,
             'unread_count': conversation.unread_count,
         })
-    
+
     context = {
         'conversations': conversation_data,
+        'pusher_key': settings.PUSHER_KEY,
+        'pusher_cluster': settings.PUSHER_CLUSTER,
     }
     return render(request, 'chat/chat_list.html', context)
 
 @login_required
 def chat_detail(request, conversation_id):
-    conversation = get_object_or_404(Conversation, id=conversation_id, participants=request.user)
+    # Get the conversation and check if the user is a participant
+    conversation = get_object_or_404(Conversation, id=conversation_id)
+    
+    if not conversation.participants.filter(id=request.user.id).exists():
+        messages.error(request, "You don't have permission to view this conversation.")
+        return redirect('TechRescueZoneApp:chat_list')
+    
     other_user = conversation.get_other_participant(request.user)
     
+    # Mark unread messages as read
     unread_messages = conversation.messages.filter(is_read=False).exclude(sender=request.user)
     unread_messages.update(is_read=True)
     
@@ -921,12 +921,43 @@ def chat_detail(request, conversation_id):
             message.sender = request.user
             message.save()
             
+            # Create notification
             Notification.objects.create(
                 recipient=other_user,
                 sender=request.user,
                 notification_type='message',
                 content=f"New message from {request.user.username}",
                 link=f"/chat/{conversation.id}/"
+            )
+            
+            # Trigger Pusher event for real-time messaging
+            pusher_client.trigger(
+                f'private-chat-{conversation.id}', 
+                'new-message',
+                {
+                    'id': message.id,
+                    'content': message.content,
+                    'sender_id': message.sender.id,
+                    'sender_username': message.sender.username,
+                    'sender_profile_picture': message.sender.profile.profile_picture.url if message.sender.profile.profile_picture else None,
+                    'created_at': message.created_at.strftime('%b %d, %Y, %I:%M %p'),
+                    'is_read': message.is_read
+                }
+            )
+            
+            # Also trigger an event to update the conversation list
+            pusher_client.trigger(
+                f'private-user-{other_user.id}',
+                'new-message-notification',
+                {
+                    'conversation_id': conversation.id,
+                    'sender_id': request.user.id,
+                    'sender_username': request.user.username,
+                    'sender_profile_picture': request.user.profile.profile_picture.url if request.user.profile.profile_picture else None,
+                    'sender_status': request.user.profile.status,
+                    'message_preview': message.content[:50] + ('...' if len(message.content) > 50 else ''),
+                    'timestamp': message.created_at.strftime('%b %d, %Y, %I:%M %p')
+                }
             )
             
             if request.headers.get('x-requested-with') == 'XMLHttpRequest':
@@ -944,43 +975,68 @@ def chat_detail(request, conversation_id):
     else:
         form = MessageForm()
     
-    messages = conversation.messages.all()
+    messages_list = conversation.messages.all()
+    
+    # Get all conversations for the sidebar
+    conversations = Conversation.objects.filter(participants=request.user)
+    conversations = conversations.annotate(
+        latest_message_time=Max('messages__created_at'),
+        unread_count=Count(
+            'messages',
+            filter=Q(messages__is_read=False) & ~Q(messages__sender=request.user)
+        )
+    ).order_by('-latest_message_time')
+    
+    conversation_data = []
+    for conv in conversations:
+        other_participant = conv.get_other_participant(request.user)
+        latest_message = conv.messages.order_by('-created_at').first()
+        
+        conversation_data.append({
+            'id': conv.id,
+            'other_user': other_participant,
+            'latest_message': latest_message,
+            'unread_count': conv.unread_count,
+        })
     
     context = {
         'conversation': conversation,
         'other_user': other_user,
-        'messages': messages,
+        'messages': messages_list,  # Changed variable name to avoid conflict with messages framework
         'form': form,
+        'conversations': conversation_data,
+        'pusher_key': settings.PUSHER_KEY,
+        'pusher_cluster': settings.PUSHER_CLUSTER,
     }
     return render(request, 'chat/chat_detail.html', context)
 
 @login_required
-def start_conversation(request, user_id):
-    other_user = get_object_or_404(User, id=user_id)
-    
-    existing_conversation = Conversation.objects.filter(
-        participants=request.user
-    ).filter(
-        participants=other_user
-    ).first()
-    
-    if existing_conversation:
-        return redirect('TechRescueZoneApp:chat_detail', conversation_id=existing_conversation.id)
-    
-    conversation = Conversation.objects.create()
-    conversation.participants.add(request.user, other_user)
-    
-    return redirect('TechRescueZoneApp:chat_detail', conversation_id=conversation.id)
-
-@login_required
 def get_new_messages(request, conversation_id):
-    conversation = get_object_or_404(Conversation, id=conversation_id, participants=request.user)
+    # Get the conversation and check if the user is a participant
+    conversation = get_object_or_404(Conversation, id=conversation_id)
+    
+    if not conversation.participants.filter(id=request.user.id).exists():
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
     
     last_message_id = request.GET.get('last_message_id', 0)
     
     new_messages = conversation.messages.filter(id__gt=last_message_id)
     
-    new_messages.filter(is_read=False).exclude(sender=request.user).update(is_read=True)
+    # Mark messages as read
+    unread_messages = new_messages.filter(is_read=False).exclude(sender=request.user)
+    if unread_messages.exists():
+        unread_messages.update(is_read=True)
+        
+        # Notify the sender that their messages have been read
+        for message in unread_messages:
+            pusher_client.trigger(
+                f'private-chat-{conversation.id}',
+                'message-read',
+                {
+                    'message_id': message.id,
+                    'reader_id': request.user.id
+                }
+            )
     
     message_data = []
     for message in new_messages:
@@ -989,6 +1045,7 @@ def get_new_messages(request, conversation_id):
             'content': message.content,
             'sender_id': message.sender.id,
             'created_at': message.created_at.strftime('%b %d, %Y, %I:%M %p'),
+            'is_read': message.is_read
         })
     
     return JsonResponse({
@@ -996,9 +1053,96 @@ def get_new_messages(request, conversation_id):
     })
 
 @login_required
+def start_conversation(request, user_id):
+    other_user = get_object_or_404(User, id=user_id)
+    
+    # Don't allow starting a conversation with yourself
+    if other_user.id == request.user.id:
+        messages.error(request, "You cannot start a conversation with yourself.")
+        return redirect('TechRescueZoneApp:chat_list')
+
+    # Check if a conversation already exists between these users
+    existing_conversation = Conversation.objects.filter(
+        participants=request.user
+    ).filter(
+        participants=other_user
+    ).first()
+
+    if existing_conversation:
+        return redirect('TechRescueZoneApp:chat_detail', conversation_id=existing_conversation.id)
+
+    # Create a new conversation
+    conversation = Conversation.objects.create()
+    conversation.participants.add(request.user, other_user)
+
+    return redirect('TechRescueZoneApp:chat_detail', conversation_id=conversation.id)
+
+@login_required
+def pusher_auth(request):
+    if request.method == 'POST':
+        socket_id = request.POST.get('socket_id')
+        channel_name = request.POST.get('channel_name')
+        
+        # Check if the user has access to this channel
+        if channel_name.startswith('private-chat-'):
+            conversation_id = channel_name.replace('private-chat-', '')
+            try:
+                conversation = Conversation.objects.get(id=conversation_id)
+                if conversation.participants.filter(id=request.user.id).exists():
+                    auth = pusher_client.authenticate(
+                        channel=channel_name,
+                        socket_id=socket_id
+                    )
+                    return JsonResponse(auth)
+            except Conversation.DoesNotExist:
+                pass
+            
+            return JsonResponse({'error': 'Unauthorized'}, status=403)
+        
+        elif channel_name.startswith('private-user-'):
+            user_id = channel_name.replace('private-user-', '')
+            if str(request.user.id) == user_id:
+                auth = pusher_client.authenticate(
+                    channel=channel_name,
+                    socket_id=socket_id
+                )
+                return JsonResponse(auth)
+        
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+    
+    return JsonResponse({'error': 'Invalid request'}, status=400)
+
+@login_required
+def search_users(request):
+    query = request.GET.get('query', '')
+
+    if len(query) < 2:
+        return JsonResponse({'users': []})
+
+    # Search for users by username, excluding the current user
+    users = User.objects.filter(
+        Q(username__icontains=query) | 
+        Q(first_name__icontains=query) | 
+        Q(last_name__icontains=query)
+    ).exclude(id=request.user.id)[:10]
+
+    # Format the results
+    user_data = []
+    for user in users:
+        profile_picture = user.profile.profile_picture.url if user.profile.profile_picture else None
+        user_data.append({
+            'id': user.id,
+            'username': user.username,
+            'profile_picture': profile_picture,
+            'status': user.profile.status,
+        })
+
+    return JsonResponse({'users': user_data})
+
+@login_required
 def notification_list(request):
     notifications = request.user.notifications.all()
-    
+
     context = {
         'notifications': notifications,
     }
@@ -1009,10 +1153,10 @@ def mark_as_read(request, notification_id):
     notification = get_object_or_404(Notification, id=notification_id, recipient=request.user)
     notification.is_read = True
     notification.save()
-    
+
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
         return JsonResponse({'status': 'success'})
-    
+
     if notification.link:
         return redirect(notification.link)
     return redirect('TechRescueZoneApp:notification_list')
@@ -1020,10 +1164,10 @@ def mark_as_read(request, notification_id):
 @login_required
 def mark_all_as_read(request):
     request.user.notifications.filter(is_read=False).update(is_read=True)
-    
+
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
         return JsonResponse({'status': 'success'})
-    
+
     return redirect('TechRescueZoneApp:notification_list')
 
 def notification_count(request):
@@ -1035,13 +1179,13 @@ def notification_count(request):
 @login_required
 def payment_process(request, order_id):
     order = get_object_or_404(Order, id=order_id, user=request.user)
-    
+
     if Payment.objects.filter(order=order, status='completed').exists():
         messages.info(request, 'This order has already been paid for.')
         return redirect('TechRescueZoneApp:order_confirmation', order_id=order.id)
-    
+
     payment_methods = PaymentMethod.objects.filter(user=request.user)
-    
+
     if request.method == 'POST':
         payment_method_type = request.POST.get('payment_method')
         
@@ -1069,7 +1213,7 @@ def payment_process(request, order_id):
         
         messages.success(request, 'Payment processed successfully!')
         return redirect('TechRescueZoneApp:order_confirmation', order_id=order.id)
-    
+
     context = {
         'order': order,
         'payment_methods': payment_methods,
@@ -1079,7 +1223,7 @@ def payment_process(request, order_id):
 @login_required
 def payment_methods(request):
     payment_methods = PaymentMethod.objects.filter(user=request.user)
-    
+
     context = {
         'payment_methods': payment_methods,
     }
@@ -1118,7 +1262,7 @@ def add_payment_method(request):
             messages.success(request, 'PayPal account added successfully!')
         
         return redirect('TechRescueZoneApp:payment_methods')
-    
+
     context = {
         'card_types': PaymentMethod.CARD_TYPE_CHOICES,
     }
@@ -1127,7 +1271,7 @@ def add_payment_method(request):
 @login_required
 def delete_payment_method(request, method_id):
     payment_method = get_object_or_404(PaymentMethod, id=method_id, user=request.user)
-    
+
     if request.method == 'POST':
         was_default = payment_method.is_default
         payment_method.delete()
@@ -1140,7 +1284,7 @@ def delete_payment_method(request, method_id):
         
         messages.success(request, 'Payment method deleted successfully!')
         return redirect('TechRescueZoneApp:payment_methods')
-    
+
     context = {
         'payment_method': payment_method,
     }
@@ -1149,12 +1293,11 @@ def delete_payment_method(request, method_id):
 @login_required
 def set_default_payment_method(request, method_id):
     payment_method = get_object_or_404(PaymentMethod, id=method_id, user=request.user)
-    
+
     PaymentMethod.objects.filter(user=request.user).update(is_default=False)
-    
+
     payment_method.is_default = True
     payment_method.save()
-    
+
     messages.success(request, 'Default payment method updated!')
     return redirect('TechRescueZoneApp:payment_methods')
-

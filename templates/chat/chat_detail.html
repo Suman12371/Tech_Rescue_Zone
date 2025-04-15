@@ -1,0 +1,826 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Chat with {{ other_user.username }} - Tech Rescue Zone{% endblock %}
+
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row g-4">
+        <!-- Sidebar with conversation list -->
+        <div class="col-md-4 col-lg-3">
+            <!-- Mobile back button -->
+            <div class="d-md-none mb-3">
+                <a href="{% url 'TechRescueZoneApp:chat_list' %}" class="btn btn-outline-danger w-100 rounded-pill">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Conversations
+                </a>
+            </div>
+            
+            <!-- Conversation list -->
+            <div class="card shadow-sm rounded-3 border-0 d-none d-md-block">
+                <div class="card-header bg-danger text-white py-3">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-comments me-2"></i>
+                        <h5 class="mb-0 fw-bold">Conversations</h5>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush conversation-list" id="conversation-list">
+                        {% for conv in conversations %}
+                        <a href="{% url 'TechRescueZoneApp:chat_detail' conv.id %}" 
+                           class="list-group-item list-group-item-action border-0 py-3 px-3 {% if conv.id == conversation.id %}active{% endif %} {% if conv.unread_count > 0 and conv.id != conversation.id %}fw-bold{% endif %}" 
+                           id="conversation-{{ conv.id }}">
+                            <div class="d-flex align-items-center">
+                                <div class="position-relative me-3">
+                                    <img src="{% static 'profile.png' %}" 
+                                         class="rounded-circle shadow-sm" width="50" height="50" alt="{{ conv.other_user.username }}">
+                                    {% if conv.other_user.is_online %}
+                                    <span class="position-absolute bottom-0 end-0 bg-success rounded-circle p-1 border border-white" style="width: 12px; height: 12px;"></span>
+                                    {% endif %}
+                                </div>
+                                <div class="flex-grow-1 min-width-0">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-0 text-truncate">{{ conv.other_user.username }}
+                                                {% if conv.other_user.profile.status == 'export' %}
+                                            <span class="badge bg-success rounded-pill">Expert</span>
+                                            {% endif %}
+                                            </h6>
+                                            
+                                        </div>
+                                        <small class="text-muted conversation-time">{{ conv.latest_message.created_at|date:"g:i a" }}</small>
+                                    </div>
+                                    <p class="mb-0 text-truncate small {% if conv.unread_count > 0 and conv.id != conversation.id %}text-dark{% else %}text-muted{% endif %}">
+                                        {% if conv.latest_message %}
+                                            {% if conv.latest_message.sender == request.user %}
+                                            <span class="text-muted">You: </span>
+                                            {% endif %}
+                                            {{ conv.latest_message.content }}
+                                        {% else %}
+                                            No messages yet
+                                        {% endif %}
+                                    </p>
+                                </div>
+                                {% if conv.unread_count > 0 and conv.id != conversation.id %}
+                                <span class="badge bg-danger rounded-pill ms-2 unread-badge">{{ conv.unread_count }}</span>
+                                {% endif %}
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main chat area -->
+        <div class="col-md-8 col-lg-9">
+            <div class="card shadow-sm rounded-3 border-0 h-100 chat-card">
+                <!-- Chat header -->
+                <div class="card-header bg-danger text-white py-3">
+                    <div class="d-flex align-items-center">
+                        <div class="position-relative me-3">
+                            <img src="{% static 'profile.png' %}" 
+                                 class="rounded-circle shadow-sm" width="50" height="50" alt="{{ other_user.username }}">
+                            {% if other_user.is_online %}
+                            <span class="position-absolute bottom-0 end-0 bg-success rounded-circle p-1 border border-white" style="width: 12px; height: 12px;"></span>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <div class="d-flex align-items-center">
+                                <h5 class="mb-0 fw-bold">{{ other_user.username }}</h5>
+                                {% if other_user.profile.status == 'export' %}
+                                <span class="badge bg-success ms-2 rounded-pill">Expert</span>
+                                {% endif %}
+                            </div>
+                            <p class="mb-0 text-white-50 small">
+                                {% if other_user.is_online %}Online{% else %}Last seen: {{ other_user.last_login|date:"M d, g:i a" }}{% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Chat messages -->
+                <div class="card-body p-0">
+                    <div class="chat-container p-4" id="chat-messages">
+                        {% if messages %}
+                            {% with current_date=None %}
+                                {% for message in messages %}
+                                    {% with message_date=message.created_at|date:"F j, Y" %}
+                                        {% if message_date != current_date %}
+                                            <div class="text-center mb-3">
+                                                <span class="badge bg-light text-dark px-3 py-2 rounded-pill date-divider">{{ message_date }}</span>
+                                            </div>
+                                            {% with current_date=message_date %}{% endwith %}
+                                        {% endif %}
+                                    {% endwith %}
+                                    
+                                    <div class="d-flex {% if message.sender == request.user %}justify-content-end{% endif %} mb-3 message-item">
+                                        {% if message.sender != request.user %}
+                                        <img src="{% static 'profile.png' %}" 
+                                             class="rounded-circle shadow-sm me-2 align-self-end" width="32" height="32" alt="{{ message.sender.username }}">
+                                        {% endif %}
+                                        
+                                        <div class="message-bubble {% if message.sender == request.user %}message-sent{% else %}message-received{% endif %}" id="message-{{ message.id }}">
+                                            <p class="mb-0">{{ message.content }}</p>
+                                            <small class="d-block text-end {% if message.sender == request.user %}text-white-50{% else %}text-muted{% endif %}">
+                                                {{ message.created_at|date:"g:i a" }}
+                                                {% if message.sender == request.user %}
+                                                    {% if message.is_read %}
+                                                    <i class="fas fa-check-double ms-1 read-status" title="Read"></i>
+                                                    {% else %}
+                                                    <i class="fas fa-check ms-1 read-status" title="Sent"></i>
+                                                    {% endif %}
+                                                {% endif %}
+                                            </small>
+                                        </div>
+                                        
+                                        {% if message.sender == request.user %}
+                                        <img src="{% static 'profile.png' %}" 
+                                             class="rounded-circle shadow-sm ms-2 align-self-end" width="32" height="32" alt="{{ request.user.username }}">
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
+                            {% endwith %}
+                        {% else %}
+                            <div class="text-center p-5 empty-chat">
+                                <div class="empty-state mb-4">
+                                    <i class="fas fa-comments fa-4x text-danger opacity-50"></i>
+                                </div>
+                                <h4 class="text-muted">No messages yet</h4>
+                                <p class="text-muted">Start the conversation by sending a message below.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Message input -->
+                <div class="card-footer bg-light p-3">
+                    <form method="post" id="message-form" action="{% url 'TechRescueZoneApp:chat_detail' conversation.id %}">
+                        {% csrf_token %}
+                        <div class="input-group">
+                            <textarea name="content" id="message-content" class="form-control rounded-start-pill" 
+                                      placeholder="Type your message..." rows="1" required></textarea>
+                            <button type="submit" class="btn btn-danger rounded-end-pill px-4">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #dc3545;
+        --primary-light: #e35d6a;
+        --primary-dark: #b02a37;
+        --success-color: #4cc9f0;
+        --light-bg: #f8f9fa;
+        --dark-text: #212529;
+        --gray-text: #6c757d;
+        --border-radius: 1rem;
+        --message-radius: 1.25rem;
+        --transition-speed: 0.3s;
+    }
+    
+    /* Card styling */
+    .card {
+        border-radius: var(--border-radius);
+        overflow: hidden;
+        transition: box-shadow var(--transition-speed);
+    }
+    
+    .card:hover {
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+    
+    .chat-card {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    /* Header styling */
+    .card-header.bg-danger {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%) !important;
+        border: none;
+    }
+    
+    /* Message bubbles */
+    .message-bubble {
+        max-width: 75%;
+        padding: 0.75rem 1rem;
+        border-radius: var(--message-radius);
+        position: relative;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        transition: transform var(--transition-speed);
+    }
+    
+    .message-bubble:hover {
+        transform: translateY(-2px);
+    }
+    
+    .message-sent {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+        color: white;
+        border-bottom-right-radius: 0.25rem;
+    }
+    
+    .message-received {
+        background-color: var(--light-bg);
+        color: var(--dark-text);
+        border-bottom-left-radius: 0.25rem;
+    }
+    
+    /* Chat container */
+    .chat-container {
+        display: flex;
+        flex-direction: column;
+        height: 60vh;
+        overflow-y: auto;
+        scroll-behavior: smooth;
+        background-color: #ffffff;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill-rule='evenodd'%3E%3Cg fill='%23f0f4f8' fill-opacity='0.4'%3E%3Cpath opacity='.5' d='M96 95h4v1h-4v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9zm-1 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-9-10h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm9-10v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-9-10h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm9-10v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-9-10h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm9-10v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-9-10h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9z'/%3E%3Cpath d='M6 5V0H5v5H0v1h5v94h1V6h94V5H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+    
+    /* Date divider */
+    .date-divider {
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    
+    /* Empty state animation */
+    .empty-state {
+        animation: pulse 2s infinite;
+    }
+    
+    .empty-chat {
+        background-color: rgba(255, 255, 255, 0.8);
+        border-radius: var(--border-radius);
+    }
+    
+    @keyframes pulse {
+        0% { opacity: 0.6; transform: scale(1); }
+        50% { opacity: 1; transform: scale(1.05); }
+        100% { opacity: 0.6; transform: scale(1); }
+    }
+    
+    /* Message animation */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .new-message {
+        animation: fadeIn 0.3s ease-out;
+    }
+    
+    /* Typing indicator */
+    .typing-indicator {
+        display: flex;
+        align-items: center;
+        margin: 10px 0;
+        padding: 0.5rem 1rem;
+        background-color: rgba(255, 255, 255, 0.8);
+        border-radius: var(--message-radius);
+        width: fit-content;
+    }
+    
+    .typing-indicator span {
+        height: 8px;
+        width: 8px;
+        background-color: var(--primary-light);
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 5px;
+        animation: typing 1s infinite;
+    }
+    
+    .typing-indicator span:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+    
+    .typing-indicator span:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+    
+    @keyframes typing {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-5px); }
+        100% { transform: translateY(0px); }
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 767.98px) {
+        .message-bubble {
+            max-width: 85%;
+        }
+        
+        .chat-container {
+            height: 50vh;
+        }
+    }
+    
+    /* Active conversation highlight */
+    .list-group-item.active {
+        background-color: rgba(220, 53, 69, 0.1);
+        color: var(--primary-color);
+        border-left: 4px solid var(--primary-color);
+    }
+    
+    /* Hover effects */
+    .list-group-item:hover {
+        background-color: rgba(220, 53, 69, 0.05);
+        transition: background-color var(--transition-speed);
+    }
+    
+    /* Rounded pill input group */
+    .rounded-start-pill {
+        border-top-left-radius: 50rem !important;
+        border-bottom-left-radius: 50rem !important;
+    }
+    
+    .rounded-end-pill {
+        border-top-right-radius: 50rem !important;
+        border-bottom-right-radius: 50rem !important;
+    }
+    
+    /* Textarea styling */
+    textarea.form-control {
+        resize: none;
+        transition: all var(--transition-speed);
+        border: 1px solid #ced4da;
+    }
+    
+    textarea.form-control:focus {
+        box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25);
+        border-color: var(--primary-light);
+    }
+    
+    /* Button styling */
+    .btn-danger {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+        border: none;
+        transition: all var(--transition-speed);
+    }
+    
+    .btn-danger:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .btn-outline-danger {
+        color: var(--primary-color);
+        border-color: var(--primary-color);
+        transition: all var(--transition-speed);
+    }
+    
+    .btn-outline-danger:hover {
+        background-color: var(--primary-color);
+        transform: translateY(-2px);
+    }
+    
+    /* Hide Django messages */
+    .django-messages, .messages, .alert-messages {
+        display: none !important;
+    }
+    
+    /* User status indicators */
+    .position-relative .bg-success {
+        box-shadow: 0 0 0 2px white;
+    }
+    
+    /* Read status icons */
+    .read-status {
+        opacity: 0.8;
+    }
+    
+    /* Scrollbar styling */
+    .chat-container::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    .chat-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+    }
+    
+    .chat-container::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 10px;
+    }
+    
+    .chat-container::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Include Pusher JS -->
+<script src="https://js.pusher.com/7.0/pusher.min.js"></script>
+<script>
+    $(document).ready(function() {
+        // IMPORTANT: Remove notification messages that appear at the top of the page
+        // This targets the specific notification format you're seeing
+        $('body').find('*:contains("Message from")').each(function() {
+            var text = $(this).text().trim();
+            if (text.startsWith('Message from') && text.includes('in Conversation')) {
+                $(this).remove();
+            }
+        });
+        
+        // Hide any existing notifications
+        $('.alert, .toast, .notification, .django-messages, .messages').hide();
+        
+        // Scroll to bottom of chat
+        var chatContainer = document.getElementById('chat-messages');
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+        
+        // Auto-resize textarea
+        $('textarea').on('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+        
+        // Initialize Pusher
+        const pusher = new Pusher('{{ pusher_key }}', {
+            cluster: '{{ pusher_cluster }}',
+            authEndpoint: '{% url "TechRescueZoneApp:pusher_auth" %}',
+            auth: {
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            }
+        });
+        
+        // Subscribe to the conversation channel
+        const conversationChannel = pusher.subscribe('private-chat-{{ conversation.id }}');
+        
+        // Subscribe to the user's personal channel for notifications
+        const userChannel = pusher.subscribe('private-user-{{ request.user.id }}');
+        
+        // Listen for new messages
+        conversationChannel.bind('new-message', function(data) {
+            // Only add the message if it's not from the current user (to avoid duplicates)
+            if (data.sender_id !== {{ request.user.id }}) {
+                // Check if we need to add a date separator
+                const lastMessageDate = $('.badge.bg-light.text-dark').last().text();
+                const messageDate = new Date(data.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                
+                if (lastMessageDate !== messageDate) {
+                    $('#chat-messages').append(
+                        '<div class="text-center mb-3">' +
+                        '<span class="badge bg-light text-dark px-3 py-2 rounded-pill date-divider">' + messageDate + '</span>' +
+                        '</div>'
+                    );
+                }
+                
+                // Add the new message with static profile image
+                const messageHtml = 
+                    '<div class="d-flex mb-3 message-item new-message">' +
+                    '<img src="{% static "profile.png" %}" class="rounded-circle shadow-sm me-2 align-self-end" width="32" height="32" alt="' + data.sender_username + '">' +
+                    '<div class="message-bubble message-received" id="message-' + data.id + '">' +
+                    '<p class="mb-0">' + data.content + '</p>' +
+                    '<small class="d-block text-end text-muted">' + 
+                    data.created_at + '</small>' +
+                    '</div>' +
+                    '</div>';
+                
+                $('#chat-messages').append(messageHtml);
+                
+                // Scroll to bottom
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+                
+                // Mark the message as read
+                $.ajax({
+                    type: 'GET',
+                    url: '{% url "TechRescueZoneApp:get_new_messages" conversation.id %}',
+                    data: {
+                        'last_message_id': data.id - 1
+                    }
+                });
+                
+                // Remove any notification messages that might appear
+                setTimeout(function() {
+                    $('body').find('*:contains("Message from")').each(function() {
+                        var text = $(this).text().trim();
+                        if (text.startsWith('Message from') && text.includes('in Conversation')) {
+                            $(this).remove();
+                        }
+                    });
+                }, 100);
+            }
+        });
+        
+        // Listen for message read events
+        conversationChannel.bind('message-read', function(data) {
+            if (data.reader_id !== {{ request.user.id }}) {
+                // Update the read status icon for the message
+                $('#message-' + data.message_id + ' .read-status')
+                    .removeClass('fa-check')
+                    .addClass('fa-check-double')
+                    .attr('title', 'Read');
+            }
+        });
+        
+        // Listen for typing indicator events
+        conversationChannel.bind('typing', function(data) {
+            if (data.user_id !== {{ request.user.id }}) {
+                // Show typing indicator with static profile image
+                if (!$('#typing-indicator').length) {
+                    $('#chat-messages').append(
+                        '<div id="typing-indicator" class="typing-indicator ms-5">' +
+                        '<img src="{% static "profile.png" %}" class="rounded-circle me-2" width="24" height="24">' +
+                        '<span></span><span></span><span></span>' +
+                        '</div>'
+                    );
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                }
+                
+                // Clear existing timeout if any
+                if (window.typingTimeout) {
+                    clearTimeout(window.typingTimeout);
+                }
+                
+                // Set timeout to remove typing indicator after 3 seconds
+                window.typingTimeout = setTimeout(function() {
+                    $('#typing-indicator').remove();
+                }, 3000);
+            }
+        });
+        
+        // Listen for new message notifications (only update conversation list, no browser notifications)
+        userChannel.bind('new-message-notification', function(data) {
+            // Update the conversation in the list if it exists
+            const conversationItem = $('#conversation-' + data.conversation_id);
+            
+            if (conversationItem.length) {
+                // Update the message preview
+                let previewText = data.message_preview;
+                if (data.sender_id !== {{ request.user.id }}) {
+                    // Increment unread count or add badge if none exists
+                    let unreadBadge = conversationItem.find('.unread-badge');
+                    if (unreadBadge.length) {
+                        let count = parseInt(unreadBadge.text()) + 1;
+                        unreadBadge.text(count);
+                    } else {
+                        conversationItem.find('.d-flex').append(
+                            '<span class="badge bg-danger rounded-pill ms-2 unread-badge">1</span>'
+                        );
+                    }
+                    
+                    // Make the conversation bold
+                    conversationItem.addClass('fw-bold');
+                    conversationItem.find('.text-truncate').removeClass('text-muted').addClass('text-dark');
+                } else {
+                    previewText = '<span class="text-muted">You: </span>' + previewText;
+                }
+                
+                // Update the preview text
+                conversationItem.find('p.mb-0').html(previewText);
+                
+                // Update the timestamp
+                conversationItem.find('.conversation-time').text(
+                    new Date(data.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                );
+                
+                // Move the conversation to the top of the list
+                $('#conversation-list').prepend(conversationItem);
+            }
+            
+            // Remove any notification messages that might appear
+            setTimeout(function() {
+                $('body').find('*:contains("Message from")').each(function() {
+                    var text = $(this).text().trim();
+                    if (text.startsWith('Message from') && text.includes('in Conversation')) {
+                        $(this).remove();
+                    }
+                });
+            }, 100);
+        });
+        
+        // AJAX form submission with optimistic UI update
+        $('#message-form').on('submit', function(e) {
+            e.preventDefault();
+            
+            var textarea = $(this).find('textarea');
+            var message = textarea.val().trim();
+            
+            if (!message) {
+                return false;
+            }
+            
+            // Optimistically add the message to the UI
+            var currentTime = new Date().toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
+            var tempId = 'temp-' + Date.now();
+            
+            var messageHtml = '<div class="d-flex justify-content-end mb-3 message-item new-message" id="' + tempId + '">' +
+                              '<div class="message-bubble message-sent">' +
+                              '<p class="mb-0">' + message + '</p>' +
+                              '<small class="d-block text-end text-white-50">' + 
+                              currentTime + ' <i class="fas fa-clock ms-1" title="Sending..."></i></small>' +
+                              '</div>' +
+                              '<img src="{% static "profile.png" %}" class="rounded-circle shadow-sm ms-2 align-self-end" width="32" height="32" alt="{{ request.user.username }}">' +
+                              '</div>';
+            
+            $('#chat-messages').append(messageHtml);
+            
+            // Scroll to bottom
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            
+            // Clear textarea and reset height
+            textarea.val('').css('height', 'auto');
+            
+            // Get the CSRF token
+            var csrftoken = $('input[name="csrfmiddlewaretoken"]').val();
+            
+            // Send the message via AJAX
+            $.ajax({
+                type: 'POST',
+                url: '{% url "TechRescueZoneApp:chat_detail" conversation.id %}',
+                data: {
+                    'content': message,
+                    'csrfmiddlewaretoken': csrftoken
+                },
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrftoken
+                },
+                success: function(data) {
+                    if (data.status === 'success') {
+                        // Replace the temporary message with the real one
+                        $('#' + tempId).replaceWith(
+                            '<div class="d-flex justify-content-end mb-3 message-item">' +
+                            '<div class="message-bubble message-sent" id="message-' + data.message.id + '">' +
+                            '<p class="mb-0">' + data.message.content + '</p>' +
+                            '<small class="d-block text-end text-white-50">' + 
+                            currentTime + ' <i class="fas fa-check ms-1 read-status" title="Sent"></i></small>' +
+                            '</div>' +
+                            '<img src="{% static "profile.png" %}" class="rounded-circle shadow-sm ms-2 align-self-end" width="32" height="32" alt="{{ request.user.username }}">' +
+                            '</div>'
+                        );
+                    } else {
+                        // Show error and allow retry
+                        $('#' + tempId + ' .fa-clock').removeClass('fa-clock').addClass('fa-exclamation-circle').attr('title', 'Failed to send');
+                        
+                        // Add a retry button
+                        $('#' + tempId + ' small').append(
+                            '<a href="#" class="text-white-50 ms-2 retry-send" data-message="' + message + '">' +
+                            '<i class="fas fa-redo-alt" title="Retry"></i></a>'
+                        );
+                    }
+                },
+                error: function() {
+                    // Show error and allow retry
+                    $('#' + tempId + ' .fa-clock').removeClass('fa-clock').addClass('fa-exclamation-circle').attr('title', 'Failed to send');
+                    
+                    // Add a retry button
+                    $('#' + tempId + ' small').append(
+                        '<a href="#" class="text-white-50 ms-2 retry-send" data-message="' + message + '">' +
+                        '<i class="fas fa-redo-alt" title="Retry"></i></a>'
+                    );
+                }
+            });
+        });
+        
+        // Handle retry sending
+        $(document).on('click', '.retry-send', function(e) {
+            e.preventDefault();
+            
+            var messageElement = $(this).closest('.message-item');
+            var message = $(this).data('message');
+            var csrftoken = $('input[name="csrfmiddlewaretoken"]').val();
+            
+            // Update UI to show retrying
+            $(this).replaceWith('<i class="fas fa-sync-alt fa-spin ms-1" title="Retrying..."></i>');
+            
+            // Retry sending the message
+            $.ajax({
+                type: 'POST',
+                url: '{% url "TechRescueZoneApp:chat_detail" conversation.id %}',
+                data: {
+                    'content': message,
+                    'csrfmiddlewaretoken': csrftoken
+                },
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrftoken
+                },
+                success: function(data) {
+                    if (data.status === 'success') {
+                        // Update the message with success status
+                        messageElement.find('.fa-exclamation-circle, .fa-sync-alt').remove();
+                        messageElement.find('small').html(
+                            data.message.created_at + ' <i class="fas fa-check ms-1 read-status" title="Sent"></i>'
+                        );
+                        
+                        // Update the message ID
+                        messageElement.find('.message-bubble').attr('id', 'message-' + data.message.id);
+                    } else {
+                        // Show error again
+                        messageElement.find('.fa-sync-alt').replaceWith(
+                            '<i class="fas fa-exclamation-circle" title="Failed to send"></i>' +
+                            '<a href="#" class="text-white-50 ms-2 retry-send" data-message="' + message + '">' +
+                            '<i class="fas fa-redo-alt" title="Retry"></i></a>'
+                        );
+                    }
+                },
+                error: function() {
+                    // Show error again
+                    messageElement.find('.fa-sync-alt').replaceWith(
+                        '<i class="fas fa-exclamation-circle" title="Failed to send"></i>' +
+                        '<a href="#" class="text-white-50 ms-2 retry-send" data-message="' + message + '">' +
+                        '<i class="fas fa-redo-alt" title="Retry"></i></a>'
+                    );
+                }
+            });
+        });
+        
+        // Send typing indicator
+        let typingTimer;
+        $('textarea').on('input', function() {
+            clearTimeout(typingTimer);
+            
+            try {
+                // Trigger typing event through Pusher
+                $.ajax({
+                    type: 'POST',
+                    url: '{% url "TechRescueZoneApp:pusher_auth" %}',
+                    data: {
+                        socket_id: pusher.connection.socket_id,
+                        channel_name: 'private-chat-{{ conversation.id }}',
+                        event: 'typing',
+                        data: JSON.stringify({
+                            user_id: {{ request.user.id }},
+                            username: '{{ request.user.username }}',
+                            profile_picture: '{% static "images/profile-avatar.png" %}'
+                        })
+                    },
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    }
+                });
+            } catch (e) {
+                console.error('Error sending typing indicator:', e);
+            }
+            
+            typingTimer = setTimeout(function() {
+                // User has stopped typing
+            }, 1000);
+        });
+        
+        // Handle Enter key to send message
+        $('textarea').keydown(function(e) {
+            if (e.keyCode === 13 && !e.shiftKey) {
+                e.preventDefault();
+                $('#message-form').submit();
+            }
+        });
+        
+        // Set up a MutationObserver to watch for new elements being added to the DOM
+        // This will catch dynamically added notifications
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.addedNodes && mutation.addedNodes.length > 0) {
+                    for (let i = 0; i < mutation.addedNodes.length; i++) {
+                        const node = mutation.addedNodes[i];
+                        // Check if the node is an element node
+                        if (node.nodeType === 1) {
+                            // Check if it contains notification text
+                            if (node.innerText && node.innerText.includes('Message from') && node.innerText.includes('in Conversation')) {
+                                node.remove();
+                            }
+                            
+                            // Also check for notification classes
+                            if (node.classList && 
+                                (node.classList.contains('alert') || 
+                                 node.classList.contains('notification') || 
+                                 node.classList.contains('toast') || 
+                                 node.classList.contains('message'))) {
+                                node.remove();
+                            }
+                        }
+                    }
+                }
+            });
+        });
+        
+        // Start observing the document body for changes
+        observer.observe(document.body, { 
+            childList: true, 
+            subtree: true 
+        });
+        
+        // Run the notification removal every second to catch any that might slip through
+        setInterval(function() {
+            $('body').find('*:contains("Message from")').each(function() {
+                var text = $(this).text().trim();
+                if (text.startsWith('Message from') && text.includes('in Conversation')) {
+                    $(this).remove();
+                }
+            });
+        }, 1000);
+    });
+</script>
+{% endblock %}
+{% endblock %}

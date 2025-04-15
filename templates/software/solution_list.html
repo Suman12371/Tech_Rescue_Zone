@@ -10,7 +10,7 @@
     <!-- Filters Sidebar -->
     <div class="col-md-3">
         <div class="card mb-4">
-            <div class="card-header">
+            <div class="card-header bg-primary text-white">
                 <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Filters</h5>
             </div>
             <div class="card-body">
@@ -81,8 +81,8 @@
         <!-- Solutions List -->
         {% if solutions %}
             {% for solution in solutions %}
-            <div class="card mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card mb-4 solution-card hover-shadow">
+                <div class="card-header d-flex justify-content-between align-items-center bg-light">
                     <h5 class="mb-0">{{ solution.title }}</h5>
                     <span class="badge bg-primary">{{ solution.category.name }}</span>
                 </div>
@@ -91,7 +91,12 @@
                         <div class="d-flex align-items-center">
                             <img src="{% if solution.author.profile.profile_picture %}{{ solution.author.profile.profile_picture.url }}{% else %}https://via.placeholder.com/40{% endif %}" class="rounded-circle me-2" width="40" height="40" alt="{{ solution.author.username }}">
                             <div>
-                                <p class="mb-0 fw-bold">{{ solution.author.username }}</p>
+                                <div class="d-flex align-items-center">
+                                    <p class="mb-0 fw-bold">{{ solution.author.username }}</p>
+                                    {% if solution.author.profile.status == 'export' %}
+                                    <span class="badge bg-success ms-2">Expert</span>
+                                    {% endif %}
+                                </div>
                                 <p class="text-muted mb-0 small">Posted on {{ solution.created_at|date:"F j, Y" }}</p>
                             </div>
                         </div>
@@ -99,9 +104,9 @@
                             {% with avg_rating=solution.get_average_rating %}
                             {% for i in "12345" %}
                                 {% if forloop.counter <= avg_rating|floatformat:"0" %}
-                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star text-warning"></i>
                                 {% else %}
-                                <i class="far fa-star"></i>
+                                <i class="far fa-star text-warning"></i>
                                 {% endif %}
                             {% endfor %}
                             <span class="ms-1">({{ avg_rating|floatformat:1 }})</span>
@@ -117,16 +122,32 @@
                             <span class="me-3"><i class="fas fa-thumbs-up me-1"></i> {{ solution.get_like_count }}</span>
                             <span><i class="fas fa-comment me-1"></i> {{ solution.get_comment_count }}</span>
                         </div>
-                        <a href="{% url 'TechRescueZoneApp:solution_detail' solution.id %}" class="btn btn-primary">Read More</a>
+                        <div class="d-flex">
+                            {% if user.is_authenticated and user.id != solution.author.id %}
+                            <a href="{% url 'TechRescueZoneApp:start_conversation' solution.author.id %}" class="btn btn-outline-primary me-2">
+                                <i class="fas fa-comment-dots me-1"></i>Chat with Author
+                            </a>
+                            {% endif %}
+                            <a href="{% url 'TechRescueZoneApp:solution_detail' solution.id %}" class="btn btn-primary">Read More</a>
+                        </div>
                     </div>
                 </div>
             </div>
             {% endfor %}
         {% else %}
             <div class="alert alert-info">
-                No solutions found matching your criteria.
+                <i class="fas fa-info-circle me-2"></i>No solutions found matching your criteria.
             </div>
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .hover-shadow:hover {
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        transition: box-shadow 0.3s ease-in-out;
+    }
+</style>
 {% endblock %}
