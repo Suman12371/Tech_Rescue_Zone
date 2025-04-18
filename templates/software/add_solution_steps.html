@@ -144,6 +144,23 @@
         margin-bottom: 0;
         white-space: pre-wrap;
     }
+    
+    /* Form validation styles */
+    .is-invalid {
+        border-color: #dc3545 !important;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right calc(0.375em + 0.1875rem) center;
+        background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+    }
+    
+    .invalid-feedback {
+        display: block;
+        width: 100%;
+        margin-top: 0.25rem;
+        font-size: 0.875em;
+        color: #dc3545;
+    }
 </style>
 {% endblock %}
 
@@ -171,8 +188,17 @@
                     </div>
                     
                     <!-- Debug Panel (hidden by default) -->
-                    <div id="debug-panel" class="debug-panel d-none">
-                        <h6><i class="fas fa-bug me-2"></i>Debug Information</h6>
+                    <div id="debug-info" class="debug-panel d-none">
+                        <h6><i class="fas fa-bug me-2"></i>Form Debug Information</h6>
+                        <p>This information helps diagnose issues with form submission:</p>
+                        <ul>
+                            <li>Total Forms: <span id="debug-total-forms">{{ formset.management_form.TOTAL_FORMS.value }}</span></li>
+                            <li>Initial Forms: <span id="debug-initial-forms">{{ formset.management_form.INITIAL_FORMS.value }}</span></li>
+                            <li>Min Forms: <span id="debug-min-forms">{{ formset.management_form.MIN_NUM_FORMS.value }}</span></li>
+                            <li>Max Forms: <span id="debug-max-forms">{{ formset.management_form.MAX_NUM_FORMS.value }}</span></li>
+                            <li>Actual Form Elements: <span id="debug-actual-forms">0</span></li>
+                            <li>Next Step Number: <span id="debug-next-step">0</span></li>
+                        </ul>
                         <div>
                             <p>Management Form Data:</p>
                             <pre id="management-form-data">
@@ -182,6 +208,8 @@ MIN_NUM_FORMS: {{ formset.management_form.MIN_NUM_FORMS.value }}
 MAX_NUM_FORMS: {{ formset.management_form.MAX_NUM_FORMS.value }}
                             </pre>
                         </div>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="verify-form-data">Verify Form Data</button>
+                        <button type="button" class="btn btn-sm btn-outline-danger ms-2" id="fix-form-data">Fix Form Data</button>
                     </div>
                     
                     <div class="alert alert-info mb-4 border-0 shadow-sm">
@@ -200,9 +228,12 @@ MAX_NUM_FORMS: {{ formset.management_form.MAX_NUM_FORMS.value }}
                         {% csrf_token %}
                         {{ formset.management_form }}
                         
+                        <!-- Hidden field to store the next step number -->
+                        <input type="hidden" id="next-step-number" value="{{ solution.steps.count|add:"1" }}">
+                        
                         <div id="steps-container">
                             {% for form in formset %}
-                            <div class="step-form mb-4">
+                            <div class="step-form mb-4" data-step-id="{{ forloop.counter }}">
                                 <div class="step-card">
                                     <div class="step-header d-flex justify-content-between align-items-center p-3">
                                         <div class="d-flex align-items-center">
@@ -238,7 +269,7 @@ MAX_NUM_FORMS: {{ formset.management_form.MAX_NUM_FORMS.value }}
                                                 <label for="{{ form.title.id_for_label }}">Step Title</label>
                                             </div>
                                             {% if form.title.errors %}
-                                            <div class="text-danger mt-1">
+                                            <div class="invalid-feedback">
                                                 {% for error in form.title.errors %}
                                                 {{ error }}
                                                 {% endfor %}
@@ -253,7 +284,7 @@ MAX_NUM_FORMS: {{ formset.management_form.MAX_NUM_FORMS.value }}
                                                 <label for="{{ form.content.id_for_label }}">Step Instructions</label>
                                             </div>
                                             {% if form.content.errors %}
-                                            <div class="text-danger mt-1">
+                                            <div class="invalid-feedback">
                                                 {% for error in form.content.errors %}
                                                 {{ error }}
                                                 {% endfor %}
@@ -264,17 +295,17 @@ MAX_NUM_FORMS: {{ formset.management_form.MAX_NUM_FORMS.value }}
                                         
                                         <div class="mb-4">
                                             <div class="form-floating">
-                                                {{ form.order|add_class:"form-control"|attr:"placeholder:Step Order" }}
+                                                {{ form.order|add_class:"form-control step-order-input"|attr:"placeholder:Step Order" }}
                                                 <label for="{{ form.order.id_for_label }}">Step Order</label>
                                             </div>
                                             {% if form.order.errors %}
-                                            <div class="text-danger mt-1">
+                                            <div class="invalid-feedback">
                                                 {% for error in form.order.errors %}
                                                 {{ error }}
                                                 {% endfor %}
                                             </div>
                                             {% endif %}
-                                            <small class="text-muted">The sequence number for this step (1, 2, 3, etc.)</small>
+                                            <small class="text-muted">The sequence number for this step</small>
                                         </div>
                                         
                                         <!-- Image Upload Section -->
@@ -319,10 +350,13 @@ MAX_NUM_FORMS: {{ formset.management_form.MAX_NUM_FORMS.value }}
                             <a href="{% url 'TechRescueZoneApp:solution_detail' solution_id=solution.id %}" class="btn btn-outline-secondary">
                                 <i class="fas fa-arrow-left me-2"></i>Back to Solution
                             </a>
-                            <button type="submit" class="btn btn-primary">
+                            <button type="submit" class="btn btn-primary" id="submit-button">
                                 <i class="fas fa-save me-2"></i>Save Steps
                             </button>
                         </div>
+                        
+                        <!-- Hidden field to indicate valid submission -->
+                        <input type="hidden" name="valid_submission" value="1">
                     </form>
                 </div>
             </div>
@@ -389,13 +423,37 @@ MAX_NUM_FORMS: {{ formset.management_form.MAX_NUM_FORMS.value }}
 {% endblock %}
 
 {% block extra_js %}
+<script>
     $(document).ready(function() {
         console.log("Document ready - initializing enhanced add steps functionality");
+        
+        // Initialize next step number based on existing steps
+        var nextStepNumber = parseInt($('#next-step-number').val()) || 1;
+        console.log("Next step number initialized to:", nextStepNumber);
         
         // Set initial form count and update progress bar
         var initialFormCount = $('#id_form-TOTAL_FORMS').val();
         console.log("Initial form count:", initialFormCount);
         updateProgressBar();
+        updateDebugInfo();
+        
+        // Initialize step order values for existing forms
+        $('.step-form').each(function(index) {
+            var orderInput = $(this).find('input[name$="order"]');
+            if (!orderInput.val()) {
+                orderInput.val(index + 1);
+            }
+            
+            // Update the next step number if this step has a higher order
+            var currentOrder = parseInt(orderInput.val());
+            if (currentOrder >= nextStepNumber) {
+                nextStepNumber = currentOrder + 1;
+            }
+        });
+        
+        // Update the hidden next step number field
+        $('#next-step-number').val(nextStepNumber);
+        console.log("Next step number updated to:", nextStepNumber);
         
         // Function to update progress bar
         function updateProgressBar() {
@@ -403,11 +461,14 @@ MAX_NUM_FORMS: {{ formset.management_form.MAX_NUM_FORMS.value }}
             var totalSteps = $('.step-form').length;
             
             $('.step-form').each(function() {
-                var title = $(this).find('input[name$="title"]').val();
-                var content = $(this).find('textarea[name$="content"]').val();
-                
-                if (title && content) {
-                    filledSteps++;
+                var isDeleted = $(this).find('input[type="checkbox"]').is(':checked');
+                if (!isDeleted) {
+                    var title = $(this).find('input[name$="title"]').val();
+                    var content = $(this).find('textarea[name$="content"]').val();
+                    
+                    if (title && content) {
+                        filledSteps++;
+                    }
                 }
             });
             
@@ -415,9 +476,144 @@ MAX_NUM_FORMS: {{ formset.management_form.MAX_NUM_FORMS.value }}
             $('#progress-bar').css('width', progress + '%');
         }
         
+        // Function to update debug info
+        function updateDebugInfo() {
+            $('#debug-total-forms').text($('#id_form-TOTAL_FORMS').val());
+            $('#debug-initial-forms').text($('#id_form-INITIAL_FORMS').val());
+            $('#debug-min-forms').text($('#id_form-MIN_NUM_FORMS').val());
+            $('#debug-max-forms').text($('#id_form-MAX_NUM_FORMS').val());
+            $('#debug-actual-forms').text($('.step-form').length);
+            $('#debug-next-step').text($('#next-step-number').val());
+            
+            $('#management-form-data').html(`TOTAL_FORMS: ${$('#id_form-TOTAL_FORMS').val()}
+INITIAL_FORMS: ${$('#id_form-INITIAL_FORMS').val()}
+MIN_NUM_FORMS: ${$('#id_form-MIN_NUM_FORMS').val()}
+MAX_NUM_FORMS: ${$('#id_form-MAX_NUM_FORMS').val()}`);
+        }
+        
         // Toggle debug panel
         $('#toggle-debug').on('click', function() {
-            $('#debug-panel').toggleClass('d-none');
+            $('#debug-info').toggleClass('d-none');
+            updateDebugInfo();
+        });
+        
+        // Verify form data
+        $('#verify-form-data').on('click', function() {
+            updateDebugInfo();
+            
+            var totalForms = parseInt($('#id_form-TOTAL_FORMS').val());
+            var actualForms = $('.step-form').length;
+            
+            if (totalForms !== actualForms) {
+                alert('Form count mismatch! TOTAL_FORMS (' + totalForms + ') does not match actual form elements (' + actualForms + ').');
+            } else {
+                alert('Form count is correct: ' + totalForms + ' forms.');
+            }
+            
+            // Check each form for correct indices
+            var hasErrors = false;
+            $('.step-form').each(function(index) {
+                var formPrefix = 'form-' + index + '-';
+                var formHasError = false;
+                
+                $(this).find(':input[name^="form-"]').each(function() {
+                    var name = $(this).attr('name');
+                    if (!name.startsWith(formPrefix)) {
+                        console.error('Form input has incorrect index:', name);
+                        formHasError = true;
+                        hasErrors = true;
+                    }
+                });
+                
+                if (formHasError) {
+                    $(this).find('.step-card').css('border', '2px solid red');
+                } else {
+                    $(this).find('.step-card').css('border', '');
+                }
+            });
+            
+            // Check for duplicate order values
+            var orderValues = [];
+            var hasDuplicateOrders = false;
+            
+            $('.step-form').each(function() {
+                var isDeleted = $(this).find('input[type="checkbox"]').is(':checked');
+                if (!isDeleted) {
+                    var orderValue = parseInt($(this).find('input[name$="order"]').val());
+                    if (orderValues.includes(orderValue)) {
+                        hasDuplicateOrders = true;
+                        $(this).find('input[name$="order"]').css('border', '2px solid red');
+                    } else {
+                        orderValues.push(orderValue);
+                    }
+                }
+            });
+            
+            if (hasDuplicateOrders) {
+                alert('Warning: Duplicate order values detected! Each step must have a unique order number.');
+            }
+            
+            if (hasErrors) {
+                alert('Some forms have incorrect indices. See console for details.');
+            } else if (totalForms === actualForms && !hasDuplicateOrders) {
+                alert('All form data looks correct!');
+            }
+        });
+        
+        // Fix form data
+        $('#fix-form-data').on('click', function() {
+            var actualForms = $('.step-form').length;
+            $('#id_form-TOTAL_FORMS').val(actualForms);
+            
+            // Fix form indices
+            $('.step-form').each(function(index) {
+                var formPrefix = 'form-' + index + '-';
+                
+                $(this).find(':input[name^="form-"]').each(function() {
+                    var name = $(this).attr('name');
+                    var correctedName = name.replace(/^form-\d+-/, formPrefix);
+                    $(this).attr('name', correctedName);
+                });
+                
+                // Update visual step number (not the order value)
+                $(this).find('.step-badge').text(index + 1);
+                $(this).find('.step-header h4').text('Step ' + (index + 1));
+            });
+            
+            // Fix duplicate order values
+            var usedOrders = [];
+            var nextOrder = 1;
+            
+            $('.step-form').each(function() {
+                var isDeleted = $(this).find('input[type="checkbox"]').is(':checked');
+                if (!isDeleted) {
+                    var orderInput = $(this).find('input[name$="order"]');
+                    var currentOrder = parseInt(orderInput.val());
+                    
+                    // If order is already used or invalid, assign a new one
+                    if (isNaN(currentOrder) || usedOrders.includes(currentOrder)) {
+                        // Find the next available order number
+                        while (usedOrders.includes(nextOrder)) {
+                            nextOrder++;
+                        }
+                        
+                        orderInput.val(nextOrder);
+                        usedOrders.push(nextOrder);
+                        nextOrder++;
+                    } else {
+                        usedOrders.push(currentOrder);
+                        if (currentOrder >= nextOrder) {
+                            nextOrder = currentOrder + 1;
+                        }
+                    }
+                }
+            });
+            
+            // Update next step number
+            $('#next-step-number').val(nextOrder);
+            
+            updateDebugInfo();
+            alert('Form data has been fixed. TOTAL_FORMS is now ' + actualForms + ' and next step number is ' + nextOrder + '.');
         });
         
         // Handle browse button click
@@ -506,40 +702,60 @@ MAX_NUM_FORMS: {{ formset.management_form.MAX_NUM_FORMS.value }}
             $(this).closest('.image-upload-container').find('.browse-btn').click();
         });
         
-        // Add step button functionality
+        // Add step button functionality - ENHANCED VERSION
         $('#add-step').on('click', function(e) {
             e.preventDefault();
             console.log("Add step button clicked");
             
-            // Get the current form count
+            // Get the current form count and next step number
             var formCount = parseInt($('#id_form-TOTAL_FORMS').val());
+            var nextStepNumber = parseInt($('#next-step-number').val());
+            
             console.log("Current form count:", formCount);
+            console.log("Next step number:", nextStepNumber);
             
-            // Get the first form as a template
-            var formTemplate = $('.step-form:first');
-            console.log("Template form found:", formTemplate.length > 0);
+            // Clone the first form as a template
+            var newForm = $('.step-form:first').clone(true);
+            console.log("Form cloned");
             
-            // Create a new form by cloning the template
-            var newFormHtml = formTemplate.prop('outerHTML');
-            console.log("Form HTML obtained");
+            // Update form index in all input names and IDs
+            newForm.find(':input').each(function() {
+                var name = $(this).attr('name');
+                if (name) {
+                    name = name.replace(/form-0-/g, 'form-' + formCount + '-');
+                    $(this).attr('name', name);
+                }
+                
+                var id = $(this).attr('id');
+                if (id) {
+                    id = id.replace(/id_form-0-/g, 'id_form-' + formCount + '-');
+                    $(this).attr('id', id);
+                }
+                
+                // Clear values except for order field
+                if ($(this).attr('type') !== 'hidden' && !$(this).hasClass('form-check-input')) {
+                    $(this).val('');
+                }
+            });
             
-            // Replace all occurrences of form-0 with the new index
-            newFormHtml = newFormHtml.replace(/form-0-/g, 'form-' + formCount + '-');
-            newFormHtml = newFormHtml.replace(/id_form-0-/g, 'id_form-' + formCount + '-');
+            // Set the data-step-id attribute
+            newForm.attr('data-step-id', nextStepNumber);
             
-            // Replace image input names
-            newFormHtml = newFormHtml.replace(/step_image_0_/g, 'step_image_' + formCount + '_');
-            newFormHtml = newFormHtml.replace(/step_image_caption_0_/g, 'step_image_caption_' + formCount + '_');
+            // Update image input names
+            newForm.find('input[type="file"]').each(function() {
+                var name = $(this).attr('name');
+                if (name && name.startsWith('step_image_0_')) {
+                    var newName = name.replace(/step_image_0_/g, 'step_image_' + formCount + '_');
+                    $(this).attr('name', newName);
+                }
+            });
             
-            // Create a new form element from the HTML
-            var newForm = $(newFormHtml);
+            // Update step number in the badge and title
+            newForm.find('.step-badge').text(nextStepNumber);
+            newForm.find('.step-header h4').text('Step ' + nextStepNumber);
             
-            // Update the step number in the badge and title
-            newForm.find('.step-badge').text(formCount + 1);
-            newForm.find('.step-header h4').text('Step ' + (formCount + 1));
-            
-            // Clear all input values
-            newForm.find('input[type="text"], textarea').val('');
+            // Set the order field to the next step number
+            newForm.find('input[name$="order"]').val(nextStepNumber);
             
             // Clear image previews
             newForm.find('.image-previews').empty();
@@ -548,31 +764,33 @@ MAX_NUM_FORMS: {{ formset.management_form.MAX_NUM_FORMS.value }}
             newForm.find('input[type="file"]').not(':first').remove();
             newForm.find('input[type="file"]:first').val('').removeClass('step-image-input-used').addClass('step-image-input');
             
-            // Set the order field to the next number
-            newForm.find('input[name$="order"]').val(formCount + 1);
-            
             // Make sure the delete checkbox is visible and unchecked
             newForm.find('.form-check').show();
             newForm.find('input[type="checkbox"]').prop('checked', false);
             
+            // Remove any validation errors
+            newForm.find('.is-invalid').removeClass('is-invalid');
+            newForm.find('.invalid-feedback').remove();
+            
             // Append the new form to the container
             $('#steps-container').append(newForm);
-            console.log("New form appended");
+            console.log("New form appended with step number:", nextStepNumber);
             
             // Update the total form count
             $('#id_form-TOTAL_FORMS').val(formCount + 1);
             console.log("Form count updated to:", formCount + 1);
             
-            // Update management form data in debug panel
-            $('#management-form-data').html(`TOTAL_FORMS: ${formCount + 1}
-INITIAL_FORMS: ${$('#id_form-INITIAL_FORMS').val()}
-MIN_NUM_FORMS: ${$('#id_form-MIN_NUM_FORMS').val()}
-MAX_NUM_FORMS: ${$('#id_form-MAX_NUM_FORMS').val()}`);
+            // Increment the next step number
+            $('#next-step-number').val(nextStepNumber + 1);
+            console.log("Next step number incremented to:", nextStepNumber + 1);
+            
+            // Update debug info
+            updateDebugInfo();
             
             // Update progress bar
             updateProgressBar();
             
-            // Scroll to the new form with animation
+            // Scroll to the new form
             $('html, body').animate({
                 scrollTop: newForm.offset().top - 100
             }, 500);
@@ -607,6 +825,55 @@ MAX_NUM_FORMS: ${$('#id_form-MAX_NUM_FORMS').val()}`);
         
         // Form validation before submit
         $('#solution-steps-form').on('submit', function(e) {
+            // Verify management form data before submission
+            var totalForms = parseInt($('#id_form-TOTAL_FORMS').val());
+            var actualForms = $('.step-form').length;
+            
+            if (totalForms !== actualForms) {
+                console.error("Form count mismatch! Updating TOTAL_FORMS to match actual count.");
+                $('#id_form-TOTAL_FORMS').val(actualForms);
+            }
+            
+            // Verify each form has the correct index
+            $('.step-form').each(function(index) {
+                var formPrefix = 'form-' + index + '-';
+                
+                $(this).find(':input[name^="form-"]').each(function() {
+                    var name = $(this).attr('name');
+                    if (name && !name.startsWith(formPrefix) && name.match(/^form-\d+-/)) {
+                        var correctedName = name.replace(/^form-\d+-/, formPrefix);
+                        console.warn('Fixing form input name:', name, '->', correctedName);
+                        $(this).attr('name', correctedName);
+                    }
+                });
+            });
+            
+            // Check for duplicate order values and fix if needed
+            var orderValues = {};
+            var orderInputs = [];
+            
+            $('.step-form').each(function() {
+                var isDeleted = $(this).find('input[type="checkbox"]').is(':checked');
+                if (!isDeleted) {
+                    var orderInput = $(this).find('input[name$="order"]');
+                    var orderValue = parseInt(orderInput.val());
+                    
+                    if (!isNaN(orderValue)) {
+                        if (orderValues[orderValue]) {
+                            console.warn('Duplicate order value detected:', orderValue);
+                        }
+                        orderValues[orderValue] = true;
+                        orderInputs.push({input: orderInput, value: orderValue});
+                    }
+                }
+            });
+            
+            // Sort by order value
+            orderInputs.sort(function(a, b) {
+                return a.value - b.value;
+            });
+            
+            // Validate required fields
             var valid = true;
             var firstInvalid = null;
             
@@ -656,6 +923,21 @@ MAX_NUM_FORMS: ${$('#id_form-MAX_NUM_FORMS').val()}`);
                         scrollTop: firstInvalid.offset().top - 100
                     }, 500);
                 }
+            } else {
+                // Show loading indicator
+                $('#submit-button').prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Saving Steps...');
+                
+                if (!$('#form-loading-indicator').length) {
+                    $('#solution-steps-form').append(`
+                        <div id="form-loading-indicator" class="alert alert-info mt-3">
+                            <i class="fas fa-spinner fa-spin me-2"></i>
+                            Saving your solution steps. Please wait...
+                        </div>
+                    `);
+                }
+                
+                // Log form data for debugging
+                console.log("Submitting valid form with", totalForms, "steps");
             }
         });
         
@@ -664,6 +946,5 @@ MAX_NUM_FORMS: ${$('#id_form-MAX_NUM_FORMS').val()}`);
             $(this).removeClass('is-invalid');
         });
     });
-
+</script>
 {% endblock %}
-

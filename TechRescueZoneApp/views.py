@@ -6,12 +6,15 @@ from django.contrib.auth.decorators import login_required
 from django.conf import settings
 from django.core.mail import send_mail
 from django.contrib.auth.views import PasswordResetView, PasswordResetConfirmView, PasswordResetDoneView, PasswordResetCompleteView
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from django.db.models import Avg, Q, Count, Max
 from django.http import JsonResponse
 import random
 import uuid
 import pusher
+import json
+import requests
+from django.views.decorators.csrf import csrf_exempt
 from .models import (
     Profile, Category, Hardware, HardwareImage, HardwareReview, Order, OrderItem,
     SolutionCategory, Solution, SolutionStep, SolutionComment, SolutionRating,
@@ -283,6 +286,7 @@ def hardware_detail(request, hardware_id):
         'avg_rating': avg_rating,
         'review_form': review_form,
         'related_hardware': related_hardware,
+        'khalti_public_key': settings.KHALTI_PUBLIC_KEY if hasattr(settings, 'KHALTI_PUBLIC_KEY') else 'test_public_key_12345abcde',
     }
     return render(request, 'hardware/hardware_detail.html', context)
 
@@ -381,7 +385,7 @@ def checkout(request):
             request.session.modified = True
             
             messages.success(request, 'Your order has been placed successfully!')
-            return redirect('TechRescueZoneApp:order_confirmation', order_id=order.id)
+            return redirect('TechRescueZoneApp:payment_process', order_id=order.id)
     else:
         form = OrderForm()
 
@@ -715,30 +719,25 @@ def add_solution_steps(request, solution_id):
         print(f"INITIAL_FORMS: {request.POST.get('form-INITIAL_FORMS')}")
         
         # Create the formset with the POST data
-        formset = SolutionStepFormSet(request.POST, instance=solution)
+        formset = SolutionStepFormSet(request.POST, request.FILES, instance=solution)
         
         if formset.is_valid():
             print("Formset is valid")
-            # Save the formset and get the saved steps
-            steps = formset.save(commit=True)
-            print(f"Saved steps: {steps}")
+            # Save each form individually to ensure all are processed
+            instances = []
+            for form in formset.forms:
+                if form.cleaned_data and not form.cleaned_data.get('DELETE', False):
+                    print(f"Saving form with data: {form.cleaned_data}")
+                    instance = form.save(commit=False)
+                    instance.solution = solution
+                    instance.save()
+                    instances.append(instance)
             
-            # Process images for each step
-            for i, form in enumerate(formset.forms):
-                # Skip deleted forms
-                if form.cleaned_data.get('DELETE', False):
-                    continue
-                
-                # Get the step instance from the saved steps or directly from the form
-                if hasattr(form, 'instance') and form.instance.pk:
-                    step = form.instance
-                    print(f"Processing step {i}: {step.title} (ID: {step.pk})")
-                    
-                    # Find all image files for this step
-                    image_keys = [k for k in request.FILES.keys() if k.startswith(f'step_image_{i}_')]
-                    print(f"Found image keys for step {i}: {image_keys}")
-                    
-                    for key in image_keys:
+            # Process images for each saved instance
+            for i, instance in enumerate(instances):
+                # Find all image files for this step
+                for key in request.FILES.keys():
+                    if key.startswith(f'step_image_{i}_'):
                         image_file = request.FILES[key]
                         # Extract image number from key (e.g., step_image_0_1 -> 1)
                         image_num = key.split('_')[-1]
@@ -747,19 +746,28 @@ def add_solution_steps(request, solution_id):
                         
                         # Create the image
                         SolutionImage.objects.create(
-                            step=step,
+                            step=instance,
                             image=image_file,
                             caption=caption
                         )
-                        print(f"Created image for step {i} with caption: {caption}")
             
-            messages.success(request, 'Solution steps added successfully!')
+            messages.success(request, f'Solution steps added successfully! {len(instances)} steps were saved.')
             return redirect('TechRescueZoneApp:solution_detail', solution_id=solution.id)
         else:
-            print(f"Formset errors: {formset.errors}")
-            print(f"Non-form errors: {formset.non_form_errors()}")
+            # Debug formset validation errors
+            print("Formset validation errors:", formset.errors)
+            print("Non-form errors:", formset.non_form_errors())
+            for i, form in enumerate(formset.forms):
+                if form.errors:
+                    print(f"Form {i} errors:", form.errors)
+            
+            messages.error(request, 'There was an error saving your steps. Please check the form and try again.')
     else:
-        formset = SolutionStepFormSet(instance=solution)
+        # If there are no existing steps, create at least one empty form
+        if solution.steps.count() == 0:
+            formset = SolutionStepFormSet(instance=solution, initial=[{'order': 1}])
+        else:
+            formset = SolutionStepFormSet(instance=solution)
 
     context = {
         'solution': solution,
@@ -1184,120 +1192,329 @@ def payment_process(request, order_id):
         messages.info(request, 'This order has already been paid for.')
         return redirect('TechRescueZoneApp:order_confirmation', order_id=order.id)
 
-    payment_methods = PaymentMethod.objects.filter(user=request.user)
-
     if request.method == 'POST':
-        payment_method_type = request.POST.get('payment_method')
+        payment_method = request.POST.get('payment_method')
         
+        # Create payment record
         payment = Payment.objects.create(
             order=order,
             user=request.user,
             amount=order.total_price,
-            payment_method=payment_method_type,
+            payment_method=payment_method,
             status='pending',
         )
         
-        payment.status = 'completed'
-        payment.transaction_id = f"SIMULATED-{payment.id}"
-        payment.save()
+        if payment_method == 'khalti':
+            # Process Khalti payment
+            khalti_payload = request.POST.get('khalti_payload')
+            if khalti_payload:
+                # In a real application, you would verify the payment with Khalti API here
+                # For sandbox/demo purposes, we'll just mark it as completed
+                payment.status = 'completed'
+                payment.transaction_id = f"KHALTI-{payment.id}"
+                payment.save()
+                
+                order.status = 'processing'
+                order.save()
+                
+                messages.success(request, 'Payment processed successfully via Khalti!')
+            else:
+                messages.error(request, 'Khalti payment failed. Please try again.')
+                return redirect('TechRescueZoneApp:payment_process', order_id=order.id)
+        else:
+            # Cash on Delivery
+            payment.status = 'pending'  # COD payments remain pending until delivery
+            payment.transaction_id = f"COD-{payment.id}"
+            payment.save()
+            
+            order.status = 'processing'
+            order.save()
+            
+            messages.success(request, 'Your order has been placed successfully! You will pay on delivery.')
         
-        order.status = 'processing'
-        order.save()
-        
+        # Create notification
         Notification.objects.create(
             recipient=request.user,
             notification_type='order_status',
-            content=f'Your payment for order #{order.id} has been processed successfully.',
-            link=f'/hardware/order-confirmation/{order.id}/',
+            content=f'Your order #{order.id} has been confirmed and is being processed.',
+            link=f'/order-confirmation/{order.id}/',
         )
         
-        messages.success(request, 'Payment processed successfully!')
         return redirect('TechRescueZoneApp:order_confirmation', order_id=order.id)
 
+    # For GET request, show payment options
     context = {
         'order': order,
-        'payment_methods': payment_methods,
+        'khalti_public_key': settings.KHALTI_PUBLIC_KEY if hasattr(settings, 'KHALTI_PUBLIC_KEY') else 'test_public_key_12345abcde',
     }
     return render(request, 'hardware/payment_process.html', context)
 
 @login_required
 def payment_methods(request):
-    payment_methods = PaymentMethod.objects.filter(user=request.user)
-
-    context = {
-        'payment_methods': payment_methods,
-    }
-    return render(request, 'hardware/payment_methods.html', context)
+    # Since we're only using COD and Khalti, we don't need saved payment methods
+    # Redirect to home or another appropriate page
+    messages.info(request, 'Payment methods are selected during checkout.')
+    return redirect('TechRescueZoneApp:home')
 
 @login_required
 def add_payment_method(request):
-    if request.method == 'POST':
-        method_type = request.POST.get('method_type')
-        
-        if method_type == 'credit_card':
-            card_type = request.POST.get('card_type')
-            card_number = request.POST.get('card_number')
-            expiry_date = request.POST.get('expiry_date')
-            
-            last_four = card_number[-4:] if len(card_number) >= 4 else card_number
-            
-            PaymentMethod.objects.create(
-                user=request.user,
-                method_type='credit_card',
-                card_type=card_type,
-                last_four=last_four,
-                expiry_date=expiry_date,
-                is_default=not PaymentMethod.objects.filter(user=request.user).exists(),
-            )
-            
-            messages.success(request, 'Credit card added successfully!')
-        
-        elif method_type == 'paypal':
-            PaymentMethod.objects.create(
-                user=request.user,
-                method_type='paypal',
-                is_default=not PaymentMethod.objects.filter(user=request.user).exists(),
-            )
-            
-            messages.success(request, 'PayPal account added successfully!')
-        
-        return redirect('TechRescueZoneApp:payment_methods')
-
-    context = {
-        'card_types': PaymentMethod.CARD_TYPE_CHOICES,
-    }
-    return render(request, 'hardware/add_payment_method.html', context)
+    # Since we're only using COD and Khalti, we don't need to add payment methods
+    messages.info(request, 'Payment methods are selected during checkout.')
+    return redirect('TechRescueZoneApp:home')
 
 @login_required
 def delete_payment_method(request, method_id):
-    payment_method = get_object_or_404(PaymentMethod, id=method_id, user=request.user)
-
-    if request.method == 'POST':
-        was_default = payment_method.is_default
-        payment_method.delete()
-        
-        if was_default:
-            other_method = PaymentMethod.objects.filter(user=request.user).first()
-            if other_method:
-                other_method.is_default = True
-                other_method.save()
-        
-        messages.success(request, 'Payment method deleted successfully!')
-        return redirect('TechRescueZoneApp:payment_methods')
-
-    context = {
-        'payment_method': payment_method,
-    }
-    return render(request, 'hardware/delete_payment_method.html', context)
+    # Since we're only using COD and Khalti, we don't need to delete payment methods
+    messages.info(request, 'Payment methods are selected during checkout.')
+    return redirect('TechRescueZoneApp:home')
 
 @login_required
 def set_default_payment_method(request, method_id):
-    payment_method = get_object_or_404(PaymentMethod, id=method_id, user=request.user)
+    # Since we're only using COD and Khalti, we don't need to set default payment methods
+    messages.info(request, 'Payment methods are selected during checkout.')
+    return redirect('TechRescueZoneApp:home')
 
-    PaymentMethod.objects.filter(user=request.user).update(is_default=False)
+@login_required
+def direct_payment(request, hardware_id):
+    if request.method == 'POST':
+        hardware = get_object_or_404(Hardware, id=hardware_id)
+        quantity = int(request.POST.get('quantity', 1))
+        payment_method = request.POST.get('payment_method')
+        
+        if hardware.stock < quantity:
+            messages.error(request, f'Sorry, only {hardware.stock} units available.')
+            return redirect('TechRescueZoneApp:hardware_detail', hardware_id=hardware.id)
+        
+        # Create order
+        order = Order.objects.create(
+            user=request.user,
+            shipping_address=request.user.profile.user.email,  # Temporary, will be updated in checkout
+            total_price=hardware.get_final_price() * quantity,
+            status='pending'
+        )
+        
+        # Create order item
+        OrderItem.objects.create(
+            order=order,
+            hardware=hardware,
+            quantity=quantity,
+            price=hardware.get_final_price()
+        )
+        
+        # Update stock
+        hardware.stock -= quantity
+        hardware.save()
+        
+        # Create payment record
+        payment = Payment.objects.create(
+            order=order,
+            user=request.user,
+            amount=order.total_price,
+            payment_method=payment_method,
+            status='pending',
+        )
+        
+        if payment_method == 'khalti':
+            # Process Khalti payment
+            khalti_payload = request.POST.get('khalti_payload')
+            if khalti_payload:
+                # In a real application, you would verify the payment with Khalti API here
+                # For sandbox/demo purposes, we'll just mark it as completed
+                payment.status = 'completed'
+                payment.transaction_id = f"KHALTI-{payment.id}"
+                payment.save()
+                
+                order.status = 'processing'
+                order.save()
+                
+                messages.success(request, 'Payment processed successfully via Khalti!')
+            else:
+                messages.error(request, 'Khalti payment failed. Please try again.')
+                return redirect('TechRescueZoneApp:hardware_detail', hardware_id=hardware.id)
+        else:
+            # Cash on Delivery
+            payment.status = 'pending'  # COD payments remain pending until delivery
+            payment.transaction_id = f"COD-{payment.id}"
+            payment.save()
+            
+            order.status = 'processing'
+            order.save()
+            
+            messages.success(request, 'Your order has been placed successfully! You will pay on delivery.')
+        
+        # Create notification
+        Notification.objects.create(
+            recipient=request.user,
+            notification_type='order_status',
+            content=f'Your order #{order.id} has been confirmed and is being processed.',
+            link=f'/order-confirmation/{order.id}/',
+        )
+        
+        return redirect('TechRescueZoneApp:order_confirmation', order_id=order.id)
+    
+    return redirect('TechRescueZoneApp:hardware_detail', hardware_id=hardware_id)
 
-    payment_method.is_default = True
-    payment_method.save()
 
-    messages.success(request, 'Default payment method updated!')
-    return redirect('TechRescueZoneApp:payment_methods')
+@login_required
+def initiate_payment(request, order_id):
+    order = get_object_or_404(Order, id=order_id, user=request.user)
+    
+    # Generate a unique purchase order ID
+    purchase_order_id = f"ORDER-{order.id}-{uuid.uuid4().hex[:8]}"
+    
+    # Prepare the payload for Khalti
+    payload = {
+        "return_url": request.build_absolute_uri(reverse('TechRescueZoneApp:payment_verify')),
+        "website_url": request.build_absolute_uri('/'),
+        "amount": int(order.total_price * 100),  # Convert to paisa
+        "purchase_order_id": purchase_order_id,
+        "purchase_order_name": f"Order #{order.id}",
+        "customer_info": {
+            "name": request.user.get_full_name() or request.user.username,
+            "email": request.user.email,
+            "phone": request.user.profile.phone if hasattr(request.user, 'profile') and hasattr(request.user.profile, 'phone') else ""
+        }
+    }
+    
+    # Make request to Khalti
+    headers = {
+        "Authorization": f"Key {settings.KHALTI_SECRET_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        response = requests.post(
+            settings.KHALTI_INITIATE_URL,
+            json=payload,
+            headers=headers
+        )
+        
+        response_data = response.json()
+        
+        if response.status_code == 200:
+            # Update order with pidx
+            order.pidx = response_data.get('pidx')
+            order.save()
+            
+            # Redirect to Khalti payment page
+            return redirect(response_data.get('payment_url'))
+        else:
+            # Handle error
+            return render(request, 'hardware/payment_error.html', {
+                'error': response_data.get('detail', 'Payment initiation failed'),
+                'order': order
+            })
+            
+    except Exception as e:
+        return render(request, 'hardware/payment_error.html', {
+            'error': str(e),
+            'order': order
+        })
+
+@csrf_exempt
+def payment_verify(request):
+    # Get parameters from the callback
+    pidx = request.GET.get('pidx')
+    status = request.GET.get('status')
+    transaction_id = request.GET.get('transaction_id')
+    
+    if not pidx:
+        return render(request, 'hardware/payment_error.html', {
+            'error': 'Invalid payment information'
+        })
+    
+    # Find the order
+    try:
+        order = Order.objects.get(pidx=pidx)
+    except Order.DoesNotExist:
+        return render(request, 'hardware/payment_error.html', {
+            'error': 'Order not found'
+        })
+    
+    # Update order status based on callback
+    if status == 'Completed':
+        order.status = 'processing'  # or 'completed' based on your workflow
+        order.transaction_id = transaction_id
+        order.save()
+        
+        # Create or update payment record
+        payment, created = Payment.objects.get_or_create(
+            order=order,
+            defaults={
+                'user': order.user,
+                'amount': order.total_price,
+                'payment_method': 'khalti',
+                'status': 'completed',
+                'transaction_id': transaction_id
+            }
+        )
+        
+        if not created:
+            payment.status = 'completed'
+            payment.transaction_id = transaction_id
+            payment.save()
+        
+        # Verify with lookup API
+        return verify_payment(request, order)
+    elif status == 'Pending':
+        order.status = 'pending'
+        order.save()
+        return render(request, 'hardware/payment_pending.html', {'order': order})
+    else:
+        order.status = 'failed' if status == 'Failed' else 'canceled'
+        order.save()
+        return render(request, 'hardware/payment_failed.html', {'order': order, 'status': status})
+
+def verify_payment(request, order):
+    # Prepare lookup request
+    headers = {
+        "Authorization": f"Key {settings.KHALTI_SECRET_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "pidx": order.pidx
+    }
+    
+    try:
+        response = requests.post(
+            settings.KHALTI_LOOKUP_URL,
+            json=payload,
+            headers=headers
+        )
+        
+        response_data = response.json()
+        
+        if response.status_code == 200 and response_data.get('status') == 'Completed':
+            # Payment is verified
+            order.status = 'processing'  # or 'completed' based on your workflow
+            order.transaction_id = response_data.get('transaction_id')
+            order.save()
+            
+            # Create notification
+            Notification.objects.create(
+                recipient=order.user,
+                notification_type='order_status',
+                content=f'Your payment for order #{order.id} has been confirmed.',
+                link=f'/order-confirmation/{order.id}/',
+            )
+            
+            return render(request, 'hardware/payment_success.html', {'order': order})
+        else:
+            # Payment verification failed
+            order.status = 'failed'
+            order.save()
+            
+            return render(request, 'hardware/payment_failed.html', {
+                'order': order,
+                'status': response_data.get('status', 'Failed')
+            })
+            
+    except Exception as e:
+        order.status = 'failed'
+        order.save()
+        
+        return render(request, 'hardware/payment_error.html', {
+            'error': str(e),
+            'order': order
+        })

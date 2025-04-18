@@ -14,7 +14,7 @@ from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
+SECRET_KEY = '635ff540c6074dd79fa779454ac9b3bf'
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -151,3 +151,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+
+
+KHALTI_SECRET_KEY = '635ff540c6074dd79fa779454ac9b3bf'
+KHALTI_PUBLIC_KEY = '71ab5746b6954f8fa12b86890544ae47'
+KHALTI_INITIATE_URL = 'https://a.khalti.com/api/v2/epayment/initiate/'
+KHALTI_LOOKUP_URL = 'https://a.khalti.com/api/v2/epayment/lookup/'

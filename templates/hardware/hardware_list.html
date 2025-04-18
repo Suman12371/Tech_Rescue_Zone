@@ -1,16 +1,16 @@
 {% extends 'base.html' %}
-
+{% load static %}
 {% block title %}Hardware Store - Tech Rescue Zone{% endblock %}
 
 {% block content %}
-<h1 class="mb-4">Hardware Store</h1>
-<p class="text-muted mb-4">Browse and purchase quality hardware from verified sellers</p>
+<h1 class="mb-4">🛠️ Hardware Store</h1>
+<p class="text-muted mb-4">Browse and purchase quality hardware from verified sellers.</p>
 
 <div class="row">
     <!-- Filters Sidebar -->
     <div class="col-md-3">
-        <div class="card mb-4">
-            <div class="card-header">
+        <div class="card mb-4 shadow-sm rounded-3">
+            <div class="card-header bg-primary text-white">
                 <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Filters</h5>
             </div>
             <div class="card-body">
@@ -29,9 +29,9 @@
                             {% endfor %}
                         </div>
                     </div>
-                    
+
                     <hr>
-                    
+
                     <!-- Price Range Filter -->
                     <div class="mb-3">
                         <label class="form-label fw-bold">Price Range</label>
@@ -44,9 +44,9 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <hr>
-                    
+
                     <!-- Sort By -->
                     <div class="mb-3">
                         <label class="form-label fw-bold">Sort By</label>
@@ -57,7 +57,7 @@
                             <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Newest</option>
                         </select>
                     </div>
-                    
+
                     <div class="d-grid">
                         <button type="submit" class="btn btn-primary">Apply Filters</button>
                         <a href="{% url 'TechRescueZoneApp:hardware_list' %}" class="btn btn-outline-secondary mt-2">Clear Filters</a>
@@ -66,58 +66,88 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Hardware Items -->
     <div class="col-md-9">
         <!-- Search Bar -->
-        <div class="card mb-4">
+        <div class="card mb-4 shadow-sm">
             <div class="card-body">
                 <form method="get" action="{% url 'TechRescueZoneApp:hardware_list' %}" class="d-flex">
-                    <input type="text" name="search" class="form-control me-2" placeholder="Search hardware..." value="{{ search_query }}">
+                    <input type="text" name="search" class="form-control me-2" placeholder="🔍 Search hardware..." value="{{ search_query }}">
                     <button type="submit" class="btn btn-primary">Search</button>
                 </form>
             </div>
         </div>
-        
+
         <!-- Hardware Grid -->
         <div class="row">
             {% if hardware_items %}
                 {% for hardware in hardware_items %}
                 <div class="col-md-6 col-lg-4 mb-4">
-                    <div class="card h-100">
+                    <div class="card h-100 shadow-sm rounded-4">
                         {% if hardware.images.filter.first %}
                         <img src="{{ hardware.images.filter.first.image.url }}" class="card-img-top" alt="{{ hardware.name }}" style="width: 100%; height: 250px; object-fit: cover;">
                         {% else %}
                         <div class="card-img-top bg-light text-center py-5">
-                            <i class="fas fa-microchip fa-3x text-muted"></i>
+                            <i class="fas fa-tools fa-3x text-muted"></i>
                         </div>
                         {% endif %}
                         <div class="card-body">
                             <h5 class="card-title">{{ hardware.name }}</h5>
-                            <p class="card-text">{{ hardware.description|truncatechars:100 }}</p>
-                            <div class="d-flex justify-content-between align-items-center">
+                            <p class="card-text">{{ hardware.description|truncatechars:80 }}</p>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
                                 {% if hardware.discount_price %}
                                 <div>
-                                    <span class="text-danger">Rs{{ hardware.discount_price }}</span>
+                                    <span class="text-danger fw-bold">Rs{{ hardware.discount_price }}</span>
                                     <small class="text-muted text-decoration-line-through">Rs{{ hardware.price }}</small>
                                 </div>
                                 {% else %}
-                                <span>${{ hardware.price }}</span>
+                                <span class="fw-bold">Rs{{ hardware.price }}</span>
                                 {% endif %}
                                 <span class="badge bg-{% if hardware.stock > 0 %}success{% else %}danger{% endif %}">
                                     {% if hardware.stock > 0 %}In Stock{% else %}Out of Stock{% endif %}
                                 </span>
                             </div>
                         </div>
-                        <div class="card-footer">
-                            <a href="{% url 'TechRescueZoneApp:hardware_detail' hardware.id %}" class="btn btn-primary w-100">View Details</a>
+                        <div class="card-footer d-flex gap-2">
+                            <a href="{% url 'TechRescueZoneApp:hardware_detail' hardware.id %}" class="btn btn-outline-primary w-50">View Details</a>
+                            <button type="button" class="btn btn-success w-50" data-bs-toggle="modal" data-bs-target="#buyNowModal{{ hardware.id }}">
+                                Buy Now
+                            </button>
                         </div>
                     </div>
                 </div>
+
+                <!-- Buy Now Modal -->
+                <div class="modal fade" id="buyNowModal{{ hardware.id }}" tabindex="-1" aria-labelledby="buyNowModalLabel{{ hardware.id }}" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content rounded-4">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="buyNowModalLabel{{ hardware.id }}">Choose Payment Method</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body text-center">
+                                <p class="mb-4">Select your preferred payment option to buy <strong>{{ hardware.name }}</strong>.</p>
+                                <div class="d-grid gap-3">
+                                    <!-- Cash on Delivery -->
+                                    <a href="#" class="btn btn-outline-dark btn-lg">
+                                        🚚 Cash on Delivery
+                                    </a>
+                                    <!-- Khalti Button -->
+                                    <a href="{% url 'TechRescueZoneApp:initiate_payment' hardware.id %}" class="btn btn-primary btn-lg">
+                                        <img src="{% static 'images/khalti-logo.png' %}" alt="Khalti" height="20" class="me-2">
+                                        Buy Now with Khalti
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 {% endfor %}
             {% else %}
                 <div class="col-12">
-                    <div class="alert alert-info">
+                    <div class="alert alert-info text-center">
                         No hardware items found matching your criteria.
                     </div>
                 </div>

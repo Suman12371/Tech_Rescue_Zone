@@ -7,6 +7,7 @@ from .models import (
     Solution, SolutionStep, SolutionImage, SolutionComment, SolutionRating,
     Message
 )
+from django.forms import inlineformset_factory, BaseInlineFormSet
 
 class UserRegisterForm(UserCreationForm):
     email = forms.EmailField()
@@ -64,25 +65,75 @@ class SolutionForm(forms.ModelForm):
     class Meta:
         model = Solution
         fields = ['title', 'summary', 'content', 'category']
-        widgets = {
-            'summary': forms.Textarea(attrs={'rows': 3}),
-            'content': forms.Textarea(attrs={'rows': 10}),
-        }
+        # widgets = {
+        #     'summary': forms.Textarea(attrs={'rows': 3}),
+        #     'content': forms.Textarea(attrs={'rows': 10}),
+        # }
+
+# class SolutionStepForm(forms.ModelForm):
+#     class Meta:
+#         model = SolutionStep
+#         fields = ['title', 'content', 'order']
+        # widgets = {
+        #     'content': forms.Textarea(attrs={'rows': 5}),
+        # }
+
+# SolutionStepFormSet = inlineformset_factory(
+#     Solution, 
+#     SolutionStep,
+#     form=SolutionStepForm,
+#     extra=1,
+#     can_delete=True,
+#     min_num=1,
+#     validate_min=True
+# )
 
 class SolutionStepForm(forms.ModelForm):
     class Meta:
         model = SolutionStep
         fields = ['title', 'content', 'order']
         widgets = {
-            'content': forms.Textarea(attrs={'rows': 5}),
+            'title': forms.TextInput(attrs={'class': 'form-control'}),
+            'content': forms.Textarea(attrs={'class': 'form-control', 'rows': 5}),
+            'order': forms.NumberInput(attrs={'class': 'form-control'}),
         }
 
+class BaseSolutionStepFormSet(BaseInlineFormSet):
+    def clean(self):
+        """
+        Custom clean method to ensure all forms are valid and properly processed
+        """
+        super().clean()
+        
+        # Check if any forms have been submitted
+        if any(self.errors):
+            return
+            
+        # Validate that we have at least one step
+        if not any(form.cleaned_data and not form.cleaned_data.get('DELETE', False) 
+                  for form in self.forms):
+            raise forms.ValidationError('At least one step is required.')
+            
+        # Validate that all steps have unique order values
+        orders = []
+        for form in self.forms:
+            if form.cleaned_data and not form.cleaned_data.get('DELETE', False):
+                order = form.cleaned_data.get('order')
+                if order in orders:
+                    raise forms.ValidationError(f'Step {order} appears multiple times. Each step must have a unique order number.')
+                orders.append(order)
+
+# Create a formset with a high max_num to ensure many steps can be added
 SolutionStepFormSet = inlineformset_factory(
     Solution, 
     SolutionStep,
     form=SolutionStepForm,
+    formset=BaseSolutionStepFormSet,
+    fields=('title', 'content', 'order'),
     extra=1,
-    can_delete=True
+    can_delete=True,
+    max_num=50,  # Allow up to 50 steps
+    validate_max=False,  # Don't validate max_num
 )
 
 class SolutionImageForm(forms.ModelForm):

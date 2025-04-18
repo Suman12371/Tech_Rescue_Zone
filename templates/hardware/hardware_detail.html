@@ -1,221 +1,705 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}{{ hardware.name }} - Tech Rescue Zone{% endblock %}
 
+{% block extra_css %}
+<style>
+  /* Custom styles for hardware detail page */
+  .product-card {
+    border-radius: 15px;
+    border: none;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    margin-bottom: 2rem;
+  }
+  
+  .product-title {
+    font-size: 2rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.5rem;
+  }
+  
+  .product-category {
+    color: #6c757d;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .product-carousel {
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  
+  .product-carousel .carousel-item {
+    height: 400px;
+    background-color: #f8f9fa;
+  }
+  
+  .product-carousel img {
+    height: 100%;
+    object-fit: contain;
+  }
+  
+  .thumbnail-gallery {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+  }
+  
+  .thumbnail {
+    width: 70px;
+    height: 70px;
+    border-radius: 8px;
+    cursor: pointer;
+    object-fit: cover;
+    border: 2px solid transparent;
+    transition: all 0.2s ease;
+  }
+  
+  .thumbnail:hover {
+    border-color: #007bff;
+    transform: translateY(-2px);
+  }
+  
+  .thumbnail.active {
+    border-color: #007bff;
+  }
+  
+  .price-section {
+    margin: 1.5rem 0;
+  }
+  
+  .current-price {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #dc3545;
+  }
+  
+  .original-price {
+    text-decoration: line-through;
+    color: #6c757d;
+    font-size: 1.25rem;
+    margin-left: 10px;
+  }
+  
+  .discount-badge {
+    background-color: #dc3545;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    margin-left: 10px;
+  }
+  
+  .stock-badge {
+    display: inline-block;
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-weight: 500;
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+  }
+  
+  .stock-badge.in-stock {
+    background-color: #d4edda;
+    color: #155724;
+  }
+  
+  .stock-badge.out-of-stock {
+    background-color: #f8d7da;
+    color: #721c24;
+  }
+  
+  .add-to-cart-btn {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    width: 100%;
+    margin-top: 1rem;
+  }
+  
+  .add-to-cart-btn:hover {
+    background-color: #0069d9;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  }
+  
+  .quantity-selector {
+    display: flex;
+    align-items: center;
+    max-width: 150px;
+    margin-top: 1rem;
+  }
+  
+  .quantity-btn {
+    width: 40px;
+    height: 40px;
+    border: 1px solid #dee2e6;
+    background-color: #f8f9fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+  }
+  
+  .quantity-btn:hover {
+    background-color: #e9ecef;
+  }
+  
+  .quantity-input {
+    width: 60px;
+    height: 40px;
+    border: 1px solid #dee2e6;
+    text-align: center;
+    font-size: 1rem;
+    font-weight: 500;
+  }
+  
+  .quantity-input:focus {
+    outline: none;
+    border-color: #80bdff;
+  }
+  
+  .seller-info {
+    display: flex;
+    align-items: center;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #dee2e6;
+  }
+  
+  .seller-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: #e9ecef;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 15px;
+  }
+  
+  .seller-name {
+    font-weight: 600;
+    margin-bottom: 0;
+  }
+  
+  .listing-date {
+    color: #6c757d;
+    font-size: 0.875rem;
+    margin-bottom: 0;
+  }
+  
+  .section-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    position: relative;
+    padding-bottom: 0.5rem;
+  }
+  
+  .section-title::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 50px;
+    height: 3px;
+    background-color: #007bff;
+  }
+  
+  .description-text {
+    color: #495057;
+    line-height: 1.7;
+  }
+  
+  .review-card {
+    background-color: #f8f9fa;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .review-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+  }
+  
+  .reviewer-name {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+  
+  .review-date {
+    color: #6c757d;
+    font-size: 0.875rem;
+  }
+  
+  .star-rating {
+    color: #ffc107;
+    margin-bottom: 0.5rem;
+  }
+  
+  .star-rating .far {
+    color: #e2e6ea;
+  }
+  
+  .review-text {
+    color: #495057;
+    margin-bottom: 0;
+  }
+  
+  .review-summary {
+    background-color: #f8f9fa;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    text-align: center;
+  }
+  
+  .average-rating {
+    font-size: 3rem;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 0.5rem;
+  }
+  
+  .rating-count {
+    color: #6c757d;
+    margin-bottom: 1rem;
+  }
+  
+  .rating-form {
+    background-color: #f8f9fa;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  
+  .rating-stars {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  .rating-stars input {
+    display: none;
+  }
+  
+  .rating-stars label {
+    cursor: pointer;
+    font-size: 1.5rem;
+    color: #e2e6ea;
+  }
+  
+  .rating-stars input:checked ~ label {
+    color: #ffc107;
+  }
+  
+  .rating-stars label:hover,
+  .rating-stars label:hover ~ label {
+    color: #ffc107;
+  }
+  
+  .related-product {
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    height: 100%;
+  }
+  
+  .related-product:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  }
+  
+  .related-product-img {
+    height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f8f9fa;
+  }
+  
+  .related-product-img img {
+    max-height: 100%;
+    max-width: 100%;
+    object-fit: contain;
+  }
+  
+  .related-product-info {
+    padding: 1rem;
+  }
+  
+  .related-product-title {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    height: 48px;
+  }
+  
+  .related-product-price {
+    color: #dc3545;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  
+  .view-btn {
+    background-color: transparent;
+    color: #007bff;
+    border: 1px solid #007bff;
+    border-radius: 5px;
+    padding: 5px 10px;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+  }
+  
+  .view-btn:hover {
+    background-color: #007bff;
+    color: white;
+  }
+  
+  @media (max-width: 767.98px) {
+    .product-carousel .carousel-item {
+      height: 300px;
+    }
+    
+    .product-title {
+      font-size: 1.5rem;
+    }
+    
+    .current-price {
+      font-size: 1.5rem;
+    }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="row">
-    <!-- Hardware Images and Details -->
-    <div class="col-md-8">
-        <div class="card mb-4">
-            <div class="card-body">
-                <div class="row">
-                    <!-- Hardware Images -->
-                    <div class="col-md-6">
-                        <div id="hardwareCarousel" class="carousel slide" data-bs-ride="carousel">
-                            <div class="carousel-inner">
-                                {% if hardware.images.all %}
-                                    {% for image in hardware.images.all %}
-                                    <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                                        <img src="{{ image.image.url }}" class="d-block w-100" alt="{{ hardware.name }}">
-                                    </div>
-                                    {% endfor %}
-                                {% else %}
-                                    <div class="carousel-item active">
-                                        <div class="bg-light text-center py-5">
-                                            <i class="fas fa-microchip fa-3x text-muted"></i>
-                                        </div>
-                                    </div>
-                                {% endif %}
-                            </div>
-                            {% if hardware.images.all.count > 1 %}
-                            <button class="carousel-control-prev" type="button" data-bs-target="#hardwareCarousel" data-bs-slide="prev">
-                                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                                <span class="visually-hidden">Previous</span>
-                            </button>
-                            <button class="carousel-control-next" type="button" data-bs-target="#hardwareCarousel" data-bs-slide="next">
-                                <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                                <span class="visually-hidden">Next</span>
-                            </button>
-                            {% endif %}
-                        </div>
-                    </div>
-                    
-                    <!-- Hardware Details -->
-                    <div class="col-md-6">
-                        <h2>{{ hardware.name }}</h2>
-                        <p class="text-muted">Category: {{ hardware.category.name }}</p>
-                        
-                        <!-- Rating -->
-                        <div class="mb-3">
-                            <div class="rating">
-                                {% for i in "12345" %}
-                                    {% if forloop.counter <= avg_rating|floatformat:"0" %}
-                                    <i class="fas fa-star"></i>
-                                    {% else %}
-                                    <i class="far fa-star"></i>
-                                    {% endif %}
-                                {% endfor %}
-                                <span class="ms-2">{{ avg_rating|floatformat:1 }} ({{ reviews.count }} reviews)</span>
-                            </div>
-                        </div>
-                        
-                        <!-- Price -->
-                        <div class="mb-3">
-                            {% if hardware.discount_price %}
-                            <div class="d-flex align-items-center">
-                                <h3 class="text-danger mb-0">Rs{{ hardware.discount_price }}</h3>
-                                <span class="text-muted text-decoration-line-through ms-2">Rs{{ hardware.price }}</span>
-                                <span class="badge bg-danger ms-2">{{ hardware.get_discount_percentage }}% OFF</span>
-                            </div>
-                            {% else %}
-                            <h3>Rs{{ hardware.price }}</h3>
-                            {% endif %}
-                        </div>
-                        
-                        <!-- Stock -->
-                        <div class="mb-3">
-                            <span class="badge bg-{% if hardware.stock > 0 %}success{% else %}danger{% endif %}">
-                                {% if hardware.stock > 0 %}In Stock ({{ hardware.stock }} available){% else %}Out of Stock{% endif %}
-                            </span>
-                        </div>
-                        
-                        <!-- Add to Cart Form -->
-                        {% if hardware.stock > 0 %}
-                        <form method="post" action="{% url 'TechRescueZoneApp:add_to_cart' hardware.id %}" class="mb-3">
-                            {% csrf_token %}
-                            <div class="input-group mb-3">
-                                <span class="input-group-text">Quantity</span>
-                                <input type="number" name="quantity" class="form-control" value="1" min="1" max="{{ hardware.stock }}">
-                            </div>
-                            <div class="d-grid">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-shopping-cart me-2"></i>Add to Cart
-                                </button>
-                            </div>
-                        </form>
-                        {% endif %}
-                        
-                        <!-- Seller Info -->
-                        <div class="mb-3">
-                            <p class="mb-1">Sold by: {{ hardware.seller.username }}</p>
-                            <p class="mb-0 text-muted">Listed on: {{ hardware.created_at|date:"F j, Y" }}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Hardware Description -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">Description</h5>
-            </div>
-            <div class="card-body">
-                <p>{{ hardware.description|linebreaks }}</p>
-            </div>
-        </div>
-        
-        <!-- Reviews -->
-        <div class="card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Customer Reviews</h5>
-                <span class="badge bg-primary">{{ reviews.count }} Reviews</span>
-            </div>
-            <div class="card-body">
-                {% if user.is_authenticated %}
-                <div class="mb-4">
-                    <h6>Write a Review</h6>
-                    <form method="post">
-                        {% csrf_token %}
-                        <div class="mb-3">
-                            <label class="form-label">Rating</label>
-                            <div class="d-flex">
-                                {% for i in "12345" %}
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" name="rating" id="rating-{{ i }}" value="{{ forloop.counter }}" required>
-                                    <label class="form-check-label" for="rating-{{ i }}">{{ forloop.counter }}</label>
-                                </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="comment" class="form-label">Comment</label>
-                            <textarea class="form-control" id="comment" name="comment" rows="3" required></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-primary">Submit Review</button>
-                    </form>
-                </div>
-                <hr>
-                {% endif %}
-                
-                {% if reviews %}
-                <div class="reviews">
-                    {% for review in reviews %}
-                    <div class="review mb-3">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h6 class="mb-1">{{ review.user.username }}</h6>
-                                <div class="rating">
-                                    {% for i in "12345" %}
-                                        {% if forloop.counter <= review.rating %}
-                                        <i class="fas fa-star"></i>
-                                        {% else %}
-                                        <i class="far fa-star"></i>
-                                        {% endif %}
-                                    {% endfor %}
-                                </div>
-                            </div>
-                            <small class="text-muted">{{ review.created_at|date:"F j, Y" }}</small>
-                        </div>
-                        <p class="mt-2">{{ review.comment }}</p>
-                        {% if not forloop.last %}<hr>{% endif %}
-                    </div>
-                    {% endfor %}
-                </div>
+<div class="container py-4">
+  <!-- Breadcrumb -->
+  <nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'TechRescueZoneApp:home' %}" class="text-decoration-none">Home</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'TechRescueZoneApp:hardware_list' %}" class="text-decoration-none">Hardware</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{{ hardware.name }}</li>
+    </ol>
+  </nav>
+
+  <div class="row">
+    <!-- Main Product Content -->
+    <div class="col-lg-8">
+      <!-- Product Gallery and Info -->
+      <div class="product-card">
+        <div class="row g-0">
+          <!-- Product Gallery -->
+          <div class="col-md-6 p-3">
+            <div id="productCarousel" class="carousel slide product-carousel" data-bs-ride="carousel">
+              <div class="carousel-inner">
+                {% if hardware.images.all %}
+                  {% for image in hardware.images.all %}
+                  <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                    <img src="{{ image.image.url }}" class="d-block w-100" alt="{{ hardware.name }}">
+                  </div>
+                  {% endfor %}
                 {% else %}
-                <p class="text-center">No reviews yet. Be the first to review this product!</p>
+                  <div class="carousel-item active">
+                    <div class="d-flex align-items-center justify-content-center h-100">
+                      <i class="fas fa-microchip fa-4x text-muted"></i>
+                    </div>
+                  </div>
                 {% endif %}
+              </div>
+              
+              {% if hardware.images.all.count > 1 %}
+              <button class="carousel-control-prev" type="button" data-bs-target="#productCarousel" data-bs-slide="prev">
+                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">Previous</span>
+              </button>
+              <button class="carousel-control-next" type="button" data-bs-target="#productCarousel" data-bs-slide="next">
+                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">Next</span>
+              </button>
+              
+              <!-- Thumbnail Gallery -->
+              <div class="thumbnail-gallery">
+                {% for image in hardware.images.all %}
+                <img src="{{ image.image.url }}" 
+                     class="thumbnail {% if forloop.first %}active{% endif %}" 
+                     alt="Thumbnail"
+                     data-bs-target="#productCarousel"
+                     data-bs-slide-to="{{ forloop.counter0 }}">
+                {% endfor %}
+              </div>
+              {% endif %}
             </div>
+          </div>
+          
+          <!-- Product Info -->
+          <div class="col-md-6 p-4">
+            <h1 class="product-title">{{ hardware.name }}</h1>
+            <p class="product-category">{{ hardware.category.name }}</p>
+            
+            <!-- Rating -->
+            <div class="star-rating mb-3">
+              {% for i in "12345" %}
+                {% if forloop.counter <= avg_rating|floatformat:"0" %}
+                <i class="fas fa-star"></i>
+                {% else %}
+                <i class="far fa-star"></i>
+                {% endif %}
+              {% endfor %}
+              <span class="ms-2 text-muted">{{ avg_rating|floatformat:1 }} ({{ reviews.count }} reviews)</span>
+            </div>
+            
+            <!-- Stock Status -->
+            <div class="stock-badge {% if hardware.stock > 0 %}in-stock{% else %}out-of-stock{% endif %}">
+              {% if hardware.stock > 0 %}
+              <i class="fas fa-check-circle me-1"></i> In Stock ({{ hardware.stock }} available)
+              {% else %}
+              <i class="fas fa-times-circle me-1"></i> Out of Stock
+              {% endif %}
+            </div>
+            
+            <!-- Price -->
+            <div class="price-section">
+              {% if hardware.discount_price %}
+              <span class="current-price">Rs. {{ hardware.discount_price }}</span>
+              <span class="original-price">Rs. {{ hardware.price }}</span>
+              <span class="discount-badge">{{ hardware.get_discount_percentage }}% OFF</span>
+              {% else %}
+              <span class="current-price">Rs. {{ hardware.price }}</span>
+              {% endif %}
+            </div>
+            
+            {% if hardware.stock > 0 %}
+            <!-- Quantity Selector -->
+            <div class="d-flex align-items-center">
+              <label for="quantity" class="form-label me-3 mb-0 fw-bold">Quantity:</label>
+              <div class="quantity-selector">
+                <div class="quantity-btn" id="decrease-qty">-</div>
+                <input type="number" id="quantity" class="quantity-input" value="1" min="1" max="{{ hardware.stock }}">
+                <div class="quantity-btn" id="increase-qty">+</div>
+              </div>
+            </div>
+            
+            <!-- Add to Cart Button -->
+            <form method="post" action="{% url 'TechRescueZoneApp:add_to_cart' hardware.id %}" id="cart-form">
+              {% csrf_token %}
+              <input type="hidden" name="quantity" id="cart-quantity" value="1">
+              <button type="submit" class="add-to-cart-btn">
+                <i class="fas fa-shopping-cart me-2"></i>Add to Cart
+              </button>
+            </form>
+            {% else %}
+            <div class="alert alert-warning mt-3">
+              <i class="fas fa-exclamation-triangle me-2"></i>
+              This item is currently out of stock. Please check back later.
+            </div>
+            {% endif %}
+            
+            <!-- Seller Info -->
+            <div class="seller-info">
+              <div class="seller-avatar">
+                <i class="fas fa-user"></i>
+              </div>
+              <div>
+                <p class="seller-name">{{ hardware.seller.username }}</p>
+                <p class="listing-date">Listed on {{ hardware.created_at|date:"F j, Y" }}</p>
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
+      
+      <!-- Product Description -->
+      <div class="product-card p-4">
+        <h2 class="section-title">Product Description</h2>
+        <div class="description-text">
+          {{ hardware.description|linebreaks }}
+        </div>
+      </div>
+      
+      <!-- Reviews Section -->
+      <div class="product-card p-4">
+        <h2 class="section-title">Customer Reviews</h2>
+        
+        <!-- Review Summary -->
+        <div class="review-summary">
+          <div class="average-rating">{{ avg_rating|floatformat:1 }}</div>
+          <div class="star-rating mb-2">
+            {% for i in "12345" %}
+              {% if forloop.counter <= avg_rating|floatformat:"0" %}
+              <i class="fas fa-star"></i>
+              {% else %}
+              <i class="far fa-star"></i>
+              {% endif %}
+            {% endfor %}
+          </div>
+          <p class="rating-count">Based on {{ reviews.count }} reviews</p>
+        </div>
+        
+        <!-- Write Review Form -->
+        {% if user.is_authenticated %}
+        <div class="rating-form">
+          <h5 class="mb-3">Write a Review</h5>
+          <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label class="form-label">Rating</label>
+              <div class="rating-stars">
+                {% for i in "12345" %}
+                <input type="radio" name="rating" id="rating-{{ i }}" value="{{ forloop.counter }}" required>
+                <label for="rating-{{ i }}"><i class="fas fa-star"></i></label>
+                {% endfor %}
+              </div>
+            </div>
+            <div class="mb-3">
+              <label for="comment" class="form-label">Your Review</label>
+              <textarea class="form-control" id="comment" name="comment" rows="3" placeholder="Share your experience with this product..." required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Submit Review</button>
+          </form>
+        </div>
+        {% endif %}
+        
+        <!-- Reviews List -->
+        {% if reviews %}
+        <div class="reviews-list">
+          {% for review in reviews %}
+          <div class="review-card">
+            <div class="review-header">
+              <div>
+                <h5 class="reviewer-name">{{ review.user.username }}</h5>
+                <div class="star-rating">
+                  {% for i in "12345" %}
+                    {% if forloop.counter <= review.rating %}
+                    <i class="fas fa-star"></i>
+                    {% else %}
+                    <i class="far fa-star"></i>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+              </div>
+              <span class="review-date">{{ review.created_at|date:"F j, Y" }}</span>
+            </div>
+            <p class="review-text">{{ review.comment }}</p>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-4">
+          <i class="far fa-comment-dots fa-3x text-muted mb-3"></i>
+          <p class="lead">No reviews yet</p>
+          <p class="text-muted">Be the first to share your experience with this product!</p>
+        </div>
+        {% endif %}
+      </div>
     </div>
     
-    <!-- Related Hardware -->
-    <div class="col-md-4">
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">Related Hardware</h5>
-            </div>
-            <div class="card-body">
-                {% if related_hardware %}
-                <div class="related-hardware">
-                    {% for item in related_hardware %}
-                    <div class="card mb-3">
-                        <div class="row g-0">
-                            <div class="col-4">
-                                {% if item.images.filter.first %}
-                                <img src="{{ item.images.filter.first.image.url }}" class="img-fluid rounded-start" alt="{{ item.name }}">
-                                {% else %}
-                                <div class="bg-light text-center h-100 d-flex align-items-center justify-content-center">
-                                    <i class="fas fa-microchip text-muted"></i>
-                                </div>
-                                {% endif %}
-                            </div>
-                            <div class="col-8">
-                                <div class="card-body py-2">
-                                    <h6 class="card-title">{{ item.name }}</h6>
-                                    <p class="card-text">Rs{{ item.get_final_price }}</p>
-                                    <a href="{% url 'TechRescueZoneApp:hardware_detail' item.id %}" class="btn btn-sm btn-outline-primary">View</a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
+    <!-- Sidebar - Related Products -->
+    <div class="col-lg-4">
+      <div class="product-card p-4">
+        <h2 class="section-title">Related Products</h2>
+        
+        {% if related_hardware %}
+        <div class="row g-3">
+          {% for item in related_hardware %}
+          <div class="col-md-6 col-lg-12">
+            <div class="related-product">
+              <div class="related-product-img">
+                {% if item.images.filter.first %}
+                <img src="{{ item.images.filter.first.image.url }}" alt="{{ item.name }}">
                 {% else %}
-                <p class="text-center">No related hardware found.</p>
+                <i class="fas fa-microchip fa-2x text-muted"></i>
                 {% endif %}
+              </div>
+              <div class="related-product-info">
+                <h6 class="related-product-title">{{ item.name }}</h6>
+                <p class="related-product-price">Rs. {{ item.get_final_price }}</p>
+                <a href="{% url 'TechRescueZoneApp:hardware_detail' item.id %}" class="btn view-btn">View Details</a>
+              </div>
             </div>
+          </div>
+          {% endfor %}
         </div>
+        {% else %}
+        <div class="text-center py-4">
+          <i class="fas fa-search fa-3x text-muted mb-3"></i>
+          <p class="text-muted">No related products found</p>
+        </div>
+        {% endif %}
+      </div>
     </div>
+  </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  $(document).ready(function() {
+    // Quantity selector
+    $('#increase-qty').click(function() {
+      var value = parseInt($('#quantity').val());
+      var max = parseInt($('#quantity').attr('max'));
+      if (value < max) {
+        $('#quantity').val(value + 1);
+        updateCartQuantity();
+      }
+    });
+    
+    $('#decrease-qty').click(function() {
+      var value = parseInt($('#quantity').val());
+      if (value > 1) {
+        $('#quantity').val(value - 1);
+        updateCartQuantity();
+      }
+    });
+    
+    $('#quantity').change(function() {
+      updateCartQuantity();
+    });
+    
+    function updateCartQuantity() {
+      var qty = $('#quantity').val();
+      $('#cart-quantity').val(qty);
+    }
+    
+    // Thumbnail gallery
+    $('.thumbnail').click(function() {
+      var slideIndex = $(this).data('bs-slide-to');
+      $('#productCarousel').carousel(slideIndex);
+      $('.thumbnail').removeClass('active');
+      $(this).addClass('active');
+    });
+    
+    // Update thumbnail active state when carousel slides
+    $('#productCarousel').on('slide.bs.carousel', function (e) {
+      var slideIndex = e.to;
+      $('.thumbnail').removeClass('active');
+      $('.thumbnail[data-bs-slide-to="' + slideIndex + '"]').addClass('active');
+    });
+    
+    // Rating system
+    $('.rating-stars input').change(function() {
+      var value = $(this).val();
+      $('.rating-stars label').removeClass('checked');
+      $('.rating-stars input:checked ~ label').addClass('checked');
+    });
+  });
+</script>
 {% endblock %}

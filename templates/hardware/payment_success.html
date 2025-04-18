@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card shadow border-success">
+                <div class="card-header bg-success text-white">
+                    <h3 class="mb-0">Payment Successful!</h3>
+                </div>
+                <div class="card-body text-center py-5">
+                    <div class="mb-4">
+                        <i class="fas fa-check-circle text-success" style="font-size: 5rem;"></i>
+                    </div>
+                    <h4 class="mb-3">Thank you for your purchase!</h4>
+                    <p class="mb-4">Your payment has been successfully processed.</p>
+                    
+                    <div class="row justify-content-center">
+                        <div class="col-md-8">
+                            <div class="card mb-4">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-0">Order Details</h5>
+                                </div>
+                                <div class="card-body">
+                                    <table class="table table-borderless">
+                                        <tbody>
+                                            <tr>
+                                                <th scope="row">Order ID:</th>
+                                                <td>{{ order.id }}</td>
+                                            </tr>
+                                            <tr>
+                                                <th scope="row">Total Amount:</th>
+                                                <td>Rs. {{ order.total_price }}</td>
+                                            </tr>
+                                            <tr>
+                                                <th scope="row">Payment Method:</th>
+                                                <td>
+                                                    {% if order.payments.first.payment_method == 'khalti' %}
+                                                        <img src="{% static 'images/khalti-logo.png' %}" alt="Khalti" height="20" class="me-2"> Khalti
+                                                    {% else %}
+                                                        <i class="fas fa-money-bill-wave text-success me-2"></i> Cash on Delivery
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <th scope="row">Transaction ID:</th>
+                                                <td>{{ order.payments.first.transaction_id|default:"N/A" }}</td>
+                                            </tr>
+                                            <tr>
+                                                <th scope="row">Date:</th>
+                                                <td>{{ order.created_at|date:"F d, Y" }}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="d-flex justify-content-center">
+                        <a href="{% url 'TechRescueZoneApp:hardware_list' %}" class="btn btn-primary me-3">
+                            <i class="fas fa-shopping-bag me-2"></i>Continue Shopping
+                        </a>
+                        <a href="{% url 'TechRescueZoneApp:user_profile' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-user me-2"></i>View My Orders
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
